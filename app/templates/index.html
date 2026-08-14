@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RedPatch | AI-Powered Security Engineering</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            dark: '#0B0F19',
+                            card: '#111827',
+                            border: '#1F2937',
+                            accent: '#DC2626',
+                            accentHover: '#B91C1C',
+                            muted: '#9CA3AF',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-brand-dark text-slate-100 font-sans min-h-screen flex flex-col justify-between antialiased selection:bg-red-900 selection:text-white">
+
+    <header class="border-b border-brand-border/60 bg-brand-dark/80 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded bg-red-600/10 border border-red-500/30 flex items-center justify-center text-red-500">
+                    <i class="fa-solid fa-shield-halved text-sm"></i>
+                </div>
+                <span class="font-mono font-bold text-lg tracking-wider text-slate-100">RED<span class="text-red-500">PATCH</span></span>
+            </div>
+            <nav class="flex items-center space-x-6 text-xs font-mono">
+                <div class="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-slate-900 border border-brand-border">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span class="text-slate-400">CORE ENGINE: <span class="text-slate-200 uppercase font-semibold">ONLINE</span></span>
+                </div>
+                <a href="#" class="text-slate-400 hover:text-slate-200 transition-colors">DOCS</a>
+                <a href="#" class="text-slate-400 hover:text-slate-200 transition-colors">GITHUB</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-6 py-12 flex-1 flex flex-col justify-center">
+
+        <div class="text-center max-w-3xl mx-auto mb-16 space-y-4">
+            <div class="inline-flex items-center space-x-2 px-3 py-1 rounded border border-red-500/20 bg-red-500/5 text-red-400 text-xs font-mono tracking-wider uppercase">
+                <i class="fa-solid fa-terminal text-xs"></i>
+                <span>Interactive AI Red Teaming Environment</span>
+            </div>
+            <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight text-white font-sans">
+                Select Your Role & Operational Track
+            </h1>
+            <p class="text-brand-muted text-sm md:text-base max-w-2xl mx-auto leading-relaxed">
+                Choose your track to enter the simulation sandbox. Analyze vulnerabilities, execute exploits, or engineer secure code patches in real-time.
+            </p>
+        </div>
+
+        <div id="role-selection" class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto w-full">
+            <a href="{{ url_for('get_modules') }}?mode=coder" class="group relative bg-brand-card border border-brand-border hover:border-emerald-500/50 rounded-xl p-8 text-left transition-all duration-300 hover:shadow-2xl hover:shadow-emerald-950/20 flex flex-col justify-between block">
+                <div>
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="w-12 h-12 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-code text-lg"></i>
+                        </div>
+                        <span class="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded border border-emerald-500/20 uppercase font-medium">Defensive Track</span>
+                    </div>
+                    <h2 class="text-xl font-bold text-slate-100 mb-2 group-hover:text-emerald-400 transition-colors">Secure Software Engineer</h2>
+                    <p class="text-brand-muted text-xs leading-relaxed mb-6">
+                        Analyze vulnerable code snippets, inspect exploit payloads delivered by the AI Red Team, and craft secure patches to withstand automated attacks.
+                    </p>
+                </div>
+                <div class="flex items-center text-xs font-mono text-slate-300 group-hover:text-emerald-400 transition-colors pt-4 border-t border-brand-border/50">
+                    <span>Configure Target Vulnerability</span>
+                    <i class="fa-solid fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
+                </div>
+            </a>
+            <a href="{{ url_for('get_modules') }}?mode=pentester" class="group relative bg-brand-card border border-brand-border hover:border-red-500/50 rounded-xl p-8 text-left transition-all duration-300 hover:shadow-2xl hover:shadow-red-950/20 flex flex-col justify-between block">
+                <div>
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="w-12 h-12 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-user-ninja text-lg"></i>
+                        </div>
+                        <span class="text-xs font-mono text-red-400 bg-red-500/10 px-2.5 py-1 rounded border border-red-500/20 uppercase font-medium">Offensive Track</span>
+                    </div>
+                    <h2 class="text-xl font-bold text-slate-100 mb-2 group-hover:text-red-400 transition-colors">Penetration Tester</h2>
+                    <p class="text-brand-muted text-xs leading-relaxed mb-6">
+                        Interact directly with the AI Red Team Agent. Supply target source code or endpoints and instruct the engine to generate targeted exploits.
+                    </p>
+                </div>
+                <div class="flex items-center text-xs font-mono text-slate-300 group-hover:text-red-400 transition-colors pt-4 border-t border-brand-border/50">
+                    <span>Launch Attack Console</span>
+                    <i class="fa-solid fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
+                </div>
+            </a>
+
+        </div>
+
+    </main>
+
+    <footer class="border-t border-brand-border/60 bg-brand-dark py-6 text-xs text-brand-muted font-mono">
+        <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center space-x-2">
+                <span>RedPatch Framework v0.1.0</span>
+                <span>•</span>
+                <span>CS50 Final Project</span>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span class="text-slate-500">Target Environment: Isolated Sandbox</span>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
