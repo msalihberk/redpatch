@@ -68,11 +68,11 @@
         <div class="flex flex-col md:flex-row md:items-center justify-between pb-8 mb-8 border-b border-brand-border gap-4">
             <div>
                 <span class="text-xs font-mono text-red-400 font-semibold uppercase tracking-wider">Module Registry</span>
-                <h1 class="text-2xl md:text-3xl font-bold text-white mt-1">Target Vulnerability Vector Catalog</h1>
+                <h1 class="text-2xl md:text-3xl font-bold text-white mt-1">Vulnerability Categories</h1>
             </div>
             <div class="flex items-center space-x-3 text-xs font-mono text-brand-muted">
                 <span class="px-3 py-1.5 rounded bg-brand-card border border-brand-border">
-                    Discovered Modules: <span class="text-slate-100 font-bold">{{ modules|length }}</span>
+                    Discovered Categories: <span class="text-slate-100 font-bold">{{ modules|length }}</span>
                 </span>
             </div>
         </div>
@@ -85,22 +85,22 @@
                         <span class="text-[11px] font-mono font-bold text-red-400 bg-red-500/10 px-2.5 py-0.5 rounded border border-red-500/20 uppercase tracking-wide">
                             {{ name }}
                         </span>
-                        <i class="fa-solid fa-bug text-brand-muted group-hover:text-red-500 transition-colors"></i>
+                        <i class="fa-solid fa-folder-tree text-brand-muted group-hover:text-red-500 transition-colors"></i>
                     </div>
 
                     <h2 class="text-lg font-bold text-slate-100 mb-2 group-hover:text-red-400 transition-colors">
-                        {{ name }} Analysis
+                        {{ name }}
                     </h2>
 
                     <p class="text-brand-muted text-xs leading-relaxed mb-6 line-clamp-3">
-                        {{ desc if desc else "No detailed description provided for this vulnerability vector." }}
+                        {{ desc if desc else "No detailed description provided for this module category." }}
                     </p>
                 </div>
 
                 <div class="pt-4 border-t border-brand-border/60">
-                    <a href="/workspace?mode={{ mode }}&module={{ name|lower }}" class="w-full py-2.5 px-4 rounded bg-slate-800 hover:bg-red-600/20 border border-brand-border hover:border-red-500/50 text-slate-200 hover:text-red-400 text-xs font-mono font-semibold transition-all flex items-center justify-between group/btn">
-                        <span>Initialize Target</span>
-                        <i class="fa-solid fa-terminal text-xs group-hover/btn:translate-x-1 transition-transform"></i>
+                    <a href="{{ url_for('get_modules', action='submodules', module=name) }}" class="w-full py-2.5 px-4 rounded bg-slate-800 hover:bg-red-600/20 border border-brand-border hover:border-red-500/50 text-slate-200 hover:text-red-400 text-xs font-mono font-semibold transition-all flex items-center justify-between group/btn">
+                        <span>Explore Submodules</span>
+                        <i class="fa-solid fa-chevron-right text-xs group-hover/btn:translate-x-1 transition-transform"></i>
                     </a>
                 </div>
             </div>

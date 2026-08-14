@@ -1,7 +1,12 @@
 {
     "name": "Test",
     "description": "description",
-    "sub_modules": "sub_modules",
-    "codes": "codes",
-    "solutions": "solutions"
+    "sub_modules": {
+        "codes": {
+            "test": "test"
+        },
+        "solutions": {
+            "test": "test"
+        }
+    }
 }

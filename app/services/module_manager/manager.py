@@ -18,6 +18,13 @@ class ModuleManager:
         PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir))
         return os.path.join(PROJECT_ROOT, modules_directory)
 
+    def is_module_exist(self, module_name):
+        if not module_name:
+            return False
+        if module_name in self._module_index:
+            return True
+        return False
+
     def discover_modules(self):
         """Scan the modules directory and populate the internal index.
 
@@ -25,18 +32,15 @@ class ModuleManager:
         """
         self._module_index.clear()
         if not os.path.isdir(self.modules_directory):
-            print(1)
             return
 
         for entry in os.listdir(self.modules_directory):
             entry_path = os.path.join(self.modules_directory, entry)
             if not os.path.isdir(entry_path):
-                print(2)
                 continue
 
             config_path = os.path.join(entry_path, "config.json")
             if not os.path.isfile(config_path):
-                print(3)
                 continue
 
             try:
@@ -46,20 +50,19 @@ class ModuleManager:
                 description = str(config.get("description", "")).strip()
                 sub_modules = config.get("sub_modules", {})
 
-                # # Submodule Config
-                # codes = sub_modules.get("codes", {})
-                # solutions = sub_modules.get("solutions", {})
+                # Submodule Config
+                codes = sub_modules.get("codes", {})
+                solutions = sub_modules.get("solutions", {})
 
-                # if not name or not sub_modules:
-                #     print(4)
-                #     continue
+                if not name or not sub_modules:
+                    continue
 
                 self._module_index[name] = {
                     "description": description,
                     "module_folder": entry_path,
                     "sub_modules": sub_modules,
-                    "codes": "codes",
-                    "solutions": "solutions",
+                    "codes": codes,
+                    "solutions": solutions,
                 }
             except Exception as e:
                 print(f"Error in module manager: {e}")
