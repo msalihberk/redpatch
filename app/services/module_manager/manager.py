@@ -28,7 +28,7 @@ class ModuleManager:
 
         codes = {}
         for filename in submodule_entry.get("codes", {}).keys():
-            file_path = os.path.join(module_entry["module_folder"], submodule_name, filename)
+            file_path = os.path.join(module_entry["module_folder"], "submodules", submodule_name, filename)
             if os.path.isfile(file_path):
                 with open(file_path, "r", encoding="utf-8") as fh:
                     codes[filename] = fh.read()
@@ -145,6 +145,7 @@ class ModuleManager:
         submodule_name = submodule_name.strip().upper()
         entry = self._submodule_index.get(submodule_name)
         if not entry:
+            print(f"\n\n\n {submodule_name} \n\n\n")
             return None
         return {
             "main" : entry.get("main", ""),

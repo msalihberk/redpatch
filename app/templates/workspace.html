@@ -56,8 +56,8 @@
         <!-- LAB STATUS & ACTIONS -->
         <div class="flex items-center space-x-3">
             <div class="flex items-center space-x-2 text-xs bg-slate-900/80 px-3 py-1.5 rounded-md border border-slate-700">
-                <span id="status-indicator" class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span id="status-text" class="text-slate-300 font-mono">CONTAINER ACTIVE</span>
+                <span id="status-indicator" class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                <span id="status-text" class="text-slate-300 font-mono">CONTAINER INACTIVE</span>
             </div>
 
             <button onclick="resetLab()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 px-3 py-1.5 rounded transition-all flex items-center gap-1.5">
@@ -75,7 +75,7 @@
             <div class="h-10 bg-slate-900/80 border-b border-borderBg flex items-center px-2 space-x-1 overflow-x-auto text-xs font-mono" id="file-tabs">
                 {% if codes %}
                     {% for filename in codes.keys() %}
-                    <button onclick="switchTab('{{ filename }}')" id="tab-{{ loop.index }}" class="tab-btn px-3 py-1.5 rounded-t border-t border-x border-transparent hover:text-white flex items-center gap-2 transition-all {% if loop.first %}bg-cardBg/80 text-patchRed border-borderBg font-semibold active-tab{% else %}text-slate-400 bg-slate-900/40{% endif %}">
+                    <button onclick="switchTab('{{ filename }}', event)" id="tab-{{ loop.index }}" class="tab-btn px-3 py-1.5 rounded-t border-t border-x border-transparent hover:text-white flex items-center gap-2 transition-all {% if loop.first %}bg-cardBg/80 text-patchRed border-borderBg font-semibold active-tab{% else %}text-slate-400 bg-slate-900/40{% endif %}">
                         <i class="fa-regular fa-file-code"></i>
                         <span>{{ filename }}</span>
                     </button>
@@ -115,7 +115,7 @@
         </section>
 
         <!-- RIGHT PANEL: TARGET CANVAS (LIVE IFRAME) -->
-        <section class="w-1/2 flex flex-col bg-slate-950">
+        <section class="w-1/2 flex flex-col bg-slate-950 relative">
             <!-- Canvas Header Bar -->
             <div class="h-10 bg-slate-900/60 border-b border-borderBg px-4 flex items-center justify-between text-xs text-slate-400">
                 <div class="flex items-center space-x-2 font-mono">
@@ -126,15 +126,36 @@
                     <button onclick="reloadIframe()" class="hover:text-white transition-colors flex items-center gap-1" title="Reload Canvas">
                         <i class="fa-solid fa-arrows-rotate"></i> Reload
                     </button>
-                    <a id="external-link" href="/proxy/{{ submodule }}" target="_blank" class="hover:text-white transition-colors" title="Open in New Tab">
+                    <a id="external-link" href="/proxy/{{ module }}/{{ submodule }}" target="_blank" class="hover:text-white transition-colors" title="Open in New Tab">
                         <i class="fa-solid fa-up-right-from-square"></i>
                     </a>
                 </div>
             </div>
 
             <!-- iFrame Canvas Container -->
-            <div class="flex-1 relative w-full h-full bg-white">
-                <iframe id="target-canvas" src="/proxy/{{ submodule }}" class="w-full h-full border-none"></iframe>
+            <div class="flex-1 relative w-full h-full bg-slate-950">
+                <!-- Overlay Container Launch Control -->
+                <div id="canvas-overlay" class="absolute inset-0 z-10 bg-slate-950/95 flex flex-col items-center justify-center gap-4 text-center p-6">
+                    <div class="w-16 h-16 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-patchRed text-2xl shadow-inner mb-2">
+                        <i class="fa-solid fa-server"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-semibold text-slate-200">Lab Container Standard Session</h3>
+                        <p class="text-xs text-slate-400 max-w-sm mt-1">Start the target application container to interact with the vulnerable environment.</p>
+                    </div>
+
+                    <button id="start-btn" onclick="startContainer()" class="mt-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-5 py-2.5 rounded shadow-lg transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-play"></i>
+                        <span>Start Lab Container</span>
+                    </button>
+
+                    <div id="loading-spinner" class="hidden flex-col items-center gap-3 mt-2">
+                        <i class="fa-solid fa-circle-notch fa-spin text-2xl text-emerald-400"></i>
+                        <span class="text-xs font-mono text-slate-400">Provisioning environment & launching target...</span>
+                    </div>
+                </div>
+
+                <iframe id="target-canvas" src="about:blank" class="w-full h-full border-none bg-white"></iframe>
             </div>
         </section>
 
@@ -145,10 +166,10 @@
         const currentModule = "{{ module }}";
         const currentSubmodule = "{{ submodule }}";
         const currentMode = "{{ mode }}";
+        const targetProxyUrl = `/proxy/${currentModule}/${currentSubmodule}`;
 
-        let activeFilename = "{% if codes %}{{ list(codes.keys())[0] }}{% endif %}";
+        let activeFilename = "{% if codes %}{{ (codes.keys() | list)[0] }}{% endif %}";
 
-        // Initialize Active Tab Display
         document.addEventListener("DOMContentLoaded", () => {
             const firstTab = document.querySelector('.tab-btn span');
             if (firstTab) {
@@ -158,31 +179,77 @@
         });
 
         // Tab Switching Logic
-        function switchTab(filename) {
+        function switchTab(filename, evt) {
             activeFilename = filename;
             document.getElementById('active-filename-display').innerText = filename;
 
-            // Hide all textareas
             document.querySelectorAll('.code-textarea').forEach(el => el.classList.add('hidden'));
 
-            // Show target textarea
             const targetEditor = document.getElementById(`editor-${filename}`);
             if (targetEditor) targetEditor.classList.remove('hidden');
 
-            // Update Tab Styles
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.classList.remove('bg-cardBg/80', 'text-patchRed', 'border-borderBg', 'font-semibold', 'active-tab');
                 btn.classList.add('text-slate-400', 'bg-slate-900/40');
             });
 
-            event.currentTarget.classList.add('bg-cardBg/80', 'text-patchRed', 'border-borderBg', 'font-semibold', 'active-tab');
-            event.currentTarget.classList.remove('text-slate-400', 'bg-slate-900/40');
+            if (evt && evt.currentTarget) {
+                evt.currentTarget.classList.add('bg-cardBg/80', 'text-patchRed', 'border-borderBg', 'font-semibold', 'active-tab');
+                evt.currentTarget.classList.remove('text-slate-400', 'bg-slate-900/40');
+            }
+        }
+
+        // Start Container Logic
+        async function startContainer() {
+            const startBtn = document.getElementById('start-btn');
+            const spinner = document.getElementById('loading-spinner');
+            const overlay = document.getElementById('canvas-overlay');
+            const iframe = document.getElementById('target-canvas');
+            const statusIndicator = document.getElementById('status-indicator');
+            const statusText = document.getElementById('status-text');
+
+            startBtn.classList.add('hidden');
+            spinner.classList.remove('hidden');
+            spinner.classList.add('flex');
+
+            let attempts = 0;
+            const maxAttempts = 15;
+
+            const pollServer = async () => {
+                try {
+                    const res = await fetch(targetProxyUrl, { method: 'GET' });
+                    if (res.ok) {
+                        iframe.src = targetProxyUrl;
+                        overlay.classList.add('hidden');
+
+                        statusIndicator.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
+                        statusText.innerText = "CONTAINER ACTIVE";
+                        return;
+                    }
+                } catch (e) {
+                    // Container still starting
+                }
+
+                attempts++;
+                if (attempts < maxAttempts) {
+                    setTimeout(pollServer, 1500);
+                } else {
+                    spinner.classList.remove('flex');
+                    spinner.classList.add('hidden');
+                    startBtn.classList.remove('hidden');
+                    alert("Container failed to respond. Please click Start again or check backend logs.");
+                }
+            };
+
+            pollServer();
         }
 
         // Reload Live iFrame
         function reloadIframe() {
             const iframe = document.getElementById('target-canvas');
-            iframe.src = iframe.src;
+            if (iframe.src && iframe.src !== "about:blank") {
+                iframe.src = targetProxyUrl;
+            }
         }
 
         // Apply Patch Request to FastAPI
@@ -228,19 +295,47 @@
 
         // Reset Lab Container
         async function resetLab() {
-            if (!confirm("Are you sure you want to reset this lab session? Unsaved changes will be lost.")) return;
+        if (!confirm("Are you sure you want to reset this lab session? Unsaved changes will be lost.")) return;
 
-            try {
-                const res = await fetch(`/api/workspace/reset?module=${currentModule}&submodule=${currentSubmodule}`, { method: 'POST' });
-                if (res.ok) {
+        try {
+            const res = await fetch(`/api/workspace/reset?module=${encodeURIComponent(currentModule)}&submodule=${encodeURIComponent(currentSubmodule)}`, {
+                method: 'POST'
+            });
+
+            const contentType = res.headers.get("content-type");
+
+            if (contentType && contentType.includes("application/json")) {
+                const data = await res.json();
+
+                if (res.ok && data.status === "success") {
                     location.reload();
                 } else {
-                    alert("Failed to reset lab.");
+                    alert("Failed to reset lab: " + (data.detail || data.message || "Unknown error"));
                 }
-            } catch (e) {
-                alert("Network error while resetting lab.");
+            } else {
+                const errorText = await res.text();
+                showErrorPage(`Server Error (${res.status} ${res.statusText})`, errorText);
             }
+        } catch (e) {
+            alert("Network or script error while resetting lab: " + e.message);
         }
+    }
+
+    function showErrorPage(title, htmlContent) {
+        const errorWindow = window.open("", "_blank");
+        if (errorWindow) {
+            errorWindow.document.write(htmlContent);
+            errorWindow.document.close();
+        } else {
+            document.body.innerHTML = `
+                <div style="padding: 20px; background: #0f172a; color: #ef4444; font-family: monospace;">
+                    <h2>${title}</h2>
+                    <hr style="border-color: #334155; margin: 10px 0;"/>
+                    <div>${htmlContent}</div>
+                </div>
+            `;
+        }
+    }
     </script>
 </body>
 </html>
