@@ -1,0 +1,18 @@
+{
+    "name": "SQLi",
+    "description": "Bypassing authentication via string concatenation.",
+    "sub_modules": [
+        {
+          "name": "BASIC_SQLI",
+          "description": "Bypassing authentication via string concatenation.",
+          "runtime": "python:3.11-slim",
+          "entrypoint": "app.py",
+          "internal_port": 5000,
+          "codes": {
+            "vulnerable": "target_snippet.py",
+            "fixed": "solution_snippet.py"
+          }
+        }
+    ]
+
+}

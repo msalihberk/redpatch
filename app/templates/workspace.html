@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RedPatch Workspace | {{ module_name }} - {{ submodule_name }}</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        patchRed: '#ef4444',
+                        darkBg: '#0f172a',
+                        cardBg: '#1e293b',
+                        borderBg: '#334155'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Monospace font & custom scrollbar */
+        pre, code, textarea { font-family: 'Fira Code', 'Courier New', Courier, monospace; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    </style>
+</head>
+<body class="bg-darkBg text-slate-200 h-screen flex flex-col overflow-hidden font-sans">
+
+    <!-- TOP NAVBAR -->
+    <header class="h-14 border-b border-borderBg bg-cardBg/50 px-4 flex items-center justify-between shrink-0">
+        <div class="flex items-center space-x-3">
+            <a href="/modules" class="text-slate-400 hover:text-white transition-colors" title="Back to Modules">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <div class="h-4 w-px bg-borderBg"></div>
+            <span class="font-bold tracking-wider text-patchRed text-sm uppercase">RedPatch</span>
+            <span class="text-slate-500">/</span>
+            <span class="text-sm font-medium text-slate-300">{{ module_name }}</span>
+            <span class="text-slate-500">/</span>
+            <span class="text-sm font-semibold text-white bg-slate-800 px-2.5 py-0.5 rounded border border-slate-700">
+                {{ submodule_name }}
+            </span>
+        </div>
+
+        <!-- LAB STATUS & ACTIONS -->
+        <div class="flex items-center space-x-3">
+            <div class="flex items-center space-x-2 text-xs bg-slate-900/80 px-3 py-1.5 rounded-md border border-slate-700">
+                <span id="status-indicator" class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span id="status-text" class="text-slate-300 font-mono">CONTAINER RUNNING (:{{ container_port }})</span>
+            </div>
+
+            <button onclick="resetContainer()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 px-3 py-1.5 rounded transition-all flex items-center gap-1.5">
+                <i class="fa-solid fa-rotate-right"></i> Reset Lab
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN WORKSPACE SPLIT-VIEW -->
+    <main class="flex-1 flex overflow-hidden">
+
+        <!-- LEFT PANEL: CODE EDITOR & SNIPPET -->
+        <section class="w-1/2 border-r border-borderBg flex flex-col bg-cardBg/30">
+            <!-- Panel Bar -->
+            <div class="h-10 bg-slate-900/60 border-b border-borderBg px-4 flex items-center justify-between text-xs text-slate-400">
+                <div class="flex items-center space-x-2 font-mono">
+                    <i class="fa-solid fa-code text-patchRed"></i>
+                    <span>target_snippet.py (Target Code)</span>
+                </div>
+                <span class="text-slate-500">Editable Section</span>
+            </div>
+
+            <!-- Code Context / Instruction Header -->
+            <div class="bg-slate-900/40 p-3 border-b border-borderBg text-xs text-slate-300">
+                <p><strong class="text-patchRed">Vulnerability Objective:</strong> The query snippet below is vulnerable to injection. Refactor the code using parameterized queries (Prepared Statements) to patch the vulnerability.</p>
+            </div>
+
+            <!-- Editor Input Area -->
+            <div class="flex-1 p-3 relative">
+                <textarea id="code-editor" class="w-full h-full bg-slate-950 text-emerald-400 p-4 rounded-lg border border-slate-800 focus:border-patchRed focus:outline-none resize-none font-mono text-sm leading-relaxed" spellcheck="false">{{ default_snippet }}</textarea>
+            </div>
+
+            <!-- Action Footer -->
+            <div class="h-14 bg-slate-900/80 border-t border-borderBg px-4 flex items-center justify-between">
+                <span id="patch-status" class="text-xs text-slate-400 font-mono"></span>
+                <button onclick="applyPatch()" class="bg-patchRed hover:bg-red-600 text-white font-medium text-xs px-4 py-2 rounded shadow transition-all flex items-center gap-2">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    Apply Patch & Execute
+                </button>
+            </div>
+        </section>
+
+        <!-- RIGHT PANEL: TARGET CANVAS (LIVE IFRAME) -->
+        <section class="w-1/2 flex flex-col bg-slate-950">
+            <!-- Canvas Bar -->
+            <div class="h-10 bg-slate-900/60 border-b border-borderBg px-4 flex items-center justify-between text-xs text-slate-400">
+                <div class="flex items-center space-x-2 font-mono">
+                    <i class="fa-solid fa-desktop text-emerald-400"></i>
+                    <span>Target Canvas (Live Output)</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button onclick="reloadIframe()" class="hover:text-white transition-colors" title="Reload iFrame">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                    </button>
+                    <a id="external-link" href="http://localhost:{{ container_port }}" target="_blank" class="hover:text-white transition-colors" title="Open in New Tab">
+                        <i class="fa-solid fa-up-right-from-square"></i>
+                    </a>
+                </div>
+            </div>
+
+            <!-- iFrame Container -->
+            <div class="flex-1 relative w-full h-full bg-white">
+                <iframe id="target-canvas" src="http://localhost:{{ container_port }}" class="w-full h-full border-none"></iframe>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- WORKSPACE SCRIPT -->
+    <script>
+        const containerPort = "{{ container_port }}";
+        const submoduleName = "{{ submodule_name }}";
+
+        // Reload Target Canvas iFrame
+        function reloadIframe() {
+            const iframe = document.getElementById('target-canvas');
+            iframe.src = iframe.src;
+        }
+
+        // Apply Code Patch to Backend Container
+        async function applyPatch() {
+            const code = document.getElementById('code-editor').value;
+            const statusText = document.getElementById('patch-status');
+
+            statusText.innerText = "Applying patch...";
+            statusText.className = "text-xs font-mono text-amber-400";
+
+            try {
+                const response = await fetch('/api/workspace/patch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        submodule: submoduleName,
+                        code: code
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    statusText.innerText = "Patch applied successfully!";
+                    statusText.className = "text-xs font-mono text-emerald-400";
+                    setTimeout(reloadIframe, 800); // Reload live preview after 800ms
+                } else {
+                    statusText.innerText = "Error: " + (result.detail || "Failed to apply patch.");
+                    statusText.className = "text-xs font-mono text-rose-400";
+                }
+            } catch (err) {
+                statusText.innerText = "Server connection error.";
+                statusText.className = "text-xs font-mono text-rose-400";
+            }
+        }
+
+        // Reset Container Session
+        async function resetContainer() {
+            if (!confirm("The lab environment will be reset to its initial state. Continue?")) return;
+
+            try {
+                const res = await fetch(`/api/workspace/reset?submodule=${submoduleName}`, { method: 'POST' });
+                if (res.ok) {
+                    location.reload();
+                }
+            } catch (e) {
+                alert("An error occurred while resetting the lab.");
+            }
+        }
+    </script>
+</body>
+</html>
