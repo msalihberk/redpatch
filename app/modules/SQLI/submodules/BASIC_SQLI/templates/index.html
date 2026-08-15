@@ -87,59 +87,61 @@
 
     <script>
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
+        e.preventDefault();
 
-            const endpoint = document.getElementById('endpoint').value;
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
+        const endpoint = document.getElementById('endpoint').value;
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
 
-            const resContainer = document.getElementById('resultContainer');
-            const resOutput = document.getElementById('resultOutput');
-            const statusCode = document.getElementById('statusCode');
-            const queryBox = document.getElementById('queryBox');
-            const executedQuery = document.getElementById('executedQuery');
+        const resContainer = document.getElementById('resultContainer');
+        const resOutput = document.getElementById('resultOutput');
+        const statusCode = document.getElementById('statusCode');
+        const queryBox = document.getElementById('queryBox');
+        const executedQuery = document.getElementById('executedQuery');
 
-            // Relative path handling to respect workspace base proxy URL
-            const targetUrl = endpoint.startsWith('/') ? endpoint : `./${endpoint}`;
+        // Clean endpoint string (remove leading slash if present)
+        const cleanEndpoint = endpoint.replace(/^\/+/, '');
 
-            try {
-                const res = await fetch(targetUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
+        // Ensure the request stays within current submodule scope: /proxy/SQLI/BASIC_SQLI/login-vulnerable
+        const currentPath = window.location.pathname.replace(/\/+$/, '');
+        const targetUrl = `${currentPath}/${cleanEndpoint}`;
 
-                const data = await res.json();
-                resContainer.classList.remove('hidden');
+        try {
+            const res = await fetch(targetUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
 
-                // Update HTTP status code badge
-                statusCode.innerText = `HTTP ${res.status}`;
-                if (res.ok) {
-                    statusCode.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800/50";
-                    resOutput.className = "bg-slate-950 p-3 rounded-lg border border-emerald-900/50 text-xs font-mono text-emerald-400 overflow-x-auto whitespace-pre-wrap max-h-48";
-                } else {
-                    statusCode.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-rose-950 text-rose-400 border border-rose-800/50";
-                    resOutput.className = "bg-slate-950 p-3 rounded-lg border border-rose-900/50 text-xs font-mono text-rose-400 overflow-x-auto whitespace-pre-wrap max-h-48";
-                }
+            const data = await res.json();
+            resContainer.classList.remove('hidden');
 
-                // Show executed query if returned by the backend
-                if (data.executed_query) {
-                    queryBox.classList.remove('hidden');
-                    executedQuery.innerText = data.executed_query;
-                } else {
-                    queryBox.classList.add('hidden');
-                }
-
-                resOutput.innerText = JSON.stringify(data, null, 2);
-            } catch (err) {
-                resContainer.classList.remove('hidden');
-                queryBox.classList.add('hidden');
-                statusCode.innerText = "ERROR";
+            statusCode.innerText = `HTTP ${res.status}`;
+            if (res.ok) {
+                statusCode.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800/50";
+                resOutput.className = "bg-slate-950 p-3 rounded-lg border border-emerald-900/50 text-xs font-mono text-emerald-400 overflow-x-auto whitespace-pre-wrap max-h-48";
+            } else {
                 statusCode.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-rose-950 text-rose-400 border border-rose-800/50";
                 resOutput.className = "bg-slate-950 p-3 rounded-lg border border-rose-900/50 text-xs font-mono text-rose-400 overflow-x-auto whitespace-pre-wrap max-h-48";
-                resOutput.innerText = "Network Error: Failed to execute request.";
             }
-        });
+
+            if (data.executed_query) {
+                queryBox.classList.remove('hidden');
+                executedQuery.innerText = data.executed_query;
+            } else {
+                queryBox.classList.add('hidden');
+            }
+
+            resOutput.innerText = JSON.stringify(data, null, 2);
+        } catch (err) {
+            resContainer.classList.remove('hidden');
+            queryBox.classList.add('hidden');
+            statusCode.innerText = "ERROR";
+            statusCode.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-rose-950 text-rose-400 border border-rose-800/50";
+            resOutput.className = "bg-slate-950 p-3 rounded-lg border border-rose-900/50 text-xs font-mono text-rose-400 overflow-x-auto whitespace-pre-wrap max-h-48";
+            resOutput.innerText = "Network Error: Failed to execute request.";
+        }
+    });
     </script>
 </body>
 </html>
