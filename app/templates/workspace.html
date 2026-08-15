@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RedPatch Workspace | {{ module_name }} - {{ submodule_name }}</title>
+    <title>RedPatch Workspace | {{ module }} - {{ submodule }}</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -24,7 +24,6 @@
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* Monospace font & custom scrollbar */
         pre, code, textarea { font-family: 'Fira Code', 'Courier New', Courier, monospace; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #0f172a; }
@@ -42,21 +41,26 @@
             <div class="h-4 w-px bg-borderBg"></div>
             <span class="font-bold tracking-wider text-patchRed text-sm uppercase">RedPatch</span>
             <span class="text-slate-500">/</span>
-            <span class="text-sm font-medium text-slate-300">{{ module_name }}</span>
+            <span class="text-sm font-medium text-slate-300">{{ module }}</span>
             <span class="text-slate-500">/</span>
             <span class="text-sm font-semibold text-white bg-slate-800 px-2.5 py-0.5 rounded border border-slate-700">
-                {{ submodule_name }}
+                {{ submodule }}
             </span>
+            {% if mode %}
+            <span class="text-xs font-mono px-2 py-0.5 rounded border {% if mode == 'coder' %}bg-blue-900/40 text-blue-400 border-blue-700{% else %}bg-amber-900/40 text-amber-400 border-amber-700{% endif %} uppercase">
+                MODE: {{ mode }}
+            </span>
+            {% endif %}
         </div>
 
         <!-- LAB STATUS & ACTIONS -->
         <div class="flex items-center space-x-3">
             <div class="flex items-center space-x-2 text-xs bg-slate-900/80 px-3 py-1.5 rounded-md border border-slate-700">
                 <span id="status-indicator" class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span id="status-text" class="text-slate-300 font-mono">CONTAINER RUNNING (:{{ container_port }})</span>
+                <span id="status-text" class="text-slate-300 font-mono">CONTAINER ACTIVE</span>
             </div>
 
-            <button onclick="resetContainer()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 px-3 py-1.5 rounded transition-all flex items-center gap-1.5">
+            <button onclick="resetLab()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 px-3 py-1.5 rounded transition-all flex items-center gap-1.5">
                 <i class="fa-solid fa-rotate-right"></i> Reset Lab
             </button>
         </div>
@@ -65,25 +69,39 @@
     <!-- MAIN WORKSPACE SPLIT-VIEW -->
     <main class="flex-1 flex overflow-hidden">
 
-        <!-- LEFT PANEL: CODE EDITOR & SNIPPET -->
+        <!-- LEFT PANEL: CODE EDITOR & FILE TABS -->
         <section class="w-1/2 border-r border-borderBg flex flex-col bg-cardBg/30">
-            <!-- Panel Bar -->
-            <div class="h-10 bg-slate-900/60 border-b border-borderBg px-4 flex items-center justify-between text-xs text-slate-400">
-                <div class="flex items-center space-x-2 font-mono">
-                    <i class="fa-solid fa-code text-patchRed"></i>
-                    <span>target_snippet.py (Target Code)</span>
-                </div>
-                <span class="text-slate-500">Editable Section</span>
+            <!-- File Tabs Bar -->
+            <div class="h-10 bg-slate-900/80 border-b border-borderBg flex items-center px-2 space-x-1 overflow-x-auto text-xs font-mono" id="file-tabs">
+                {% if codes %}
+                    {% for filename in codes.keys() %}
+                    <button onclick="switchTab('{{ filename }}')" id="tab-{{ loop.index }}" class="tab-btn px-3 py-1.5 rounded-t border-t border-x border-transparent hover:text-white flex items-center gap-2 transition-all {% if loop.first %}bg-cardBg/80 text-patchRed border-borderBg font-semibold active-tab{% else %}text-slate-400 bg-slate-900/40{% endif %}">
+                        <i class="fa-regular fa-file-code"></i>
+                        <span>{{ filename }}</span>
+                    </button>
+                    {% endfor %}
+                {% else %}
+                    <span class="text-slate-500 px-3 py-1">No source files available</span>
+                {% endif %}
             </div>
 
-            <!-- Code Context / Instruction Header -->
-            <div class="bg-slate-900/40 p-3 border-b border-borderBg text-xs text-slate-300">
-                <p><strong class="text-patchRed">Vulnerability Objective:</strong> The query snippet below is vulnerable to injection. Refactor the code using parameterized queries (Prepared Statements) to patch the vulnerability.</p>
+            <!-- Context Info Bar -->
+            <div class="bg-slate-900/40 p-2.5 border-b border-borderBg text-xs text-slate-300 flex items-center justify-between">
+                <span><strong class="text-patchRed">Target File:</strong> <span id="active-filename-display">Select a file</span></span>
+                <span class="text-slate-500 font-mono text-[11px]">UTF-8 Encoding</span>
             </div>
 
-            <!-- Editor Input Area -->
+            <!-- Textarea Editor / Content Area -->
             <div class="flex-1 p-3 relative">
-                <textarea id="code-editor" class="w-full h-full bg-slate-950 text-emerald-400 p-4 rounded-lg border border-slate-800 focus:border-patchRed focus:outline-none resize-none font-mono text-sm leading-relaxed" spellcheck="false">{{ default_snippet }}</textarea>
+                {% if codes %}
+                    {% for filename, content in codes.items() %}
+                    <textarea id="editor-{{ filename }}" class="code-textarea w-full h-full bg-slate-950 text-emerald-400 p-4 rounded-lg border border-slate-800 focus:border-patchRed focus:outline-none resize-none font-mono text-sm leading-relaxed {% if not loop.first %}hidden{% endif %}" spellcheck="false">{{ content }}</textarea>
+                    {% endfor %}
+                {% else %}
+                    <div class="w-full h-full bg-slate-950 p-4 rounded-lg border border-slate-800 text-slate-500 font-mono text-sm">
+                        # No code snippets loaded for this submodule.
+                    </div>
+                {% endif %}
             </div>
 
             <!-- Action Footer -->
@@ -91,32 +109,32 @@
                 <span id="patch-status" class="text-xs text-slate-400 font-mono"></span>
                 <button onclick="applyPatch()" class="bg-patchRed hover:bg-red-600 text-white font-medium text-xs px-4 py-2 rounded shadow transition-all flex items-center gap-2">
                     <i class="fa-solid fa-wand-magic-sparkles"></i>
-                    Apply Patch & Execute
+                    Apply Changes & Execute
                 </button>
             </div>
         </section>
 
         <!-- RIGHT PANEL: TARGET CANVAS (LIVE IFRAME) -->
         <section class="w-1/2 flex flex-col bg-slate-950">
-            <!-- Canvas Bar -->
+            <!-- Canvas Header Bar -->
             <div class="h-10 bg-slate-900/60 border-b border-borderBg px-4 flex items-center justify-between text-xs text-slate-400">
                 <div class="flex items-center space-x-2 font-mono">
                     <i class="fa-solid fa-desktop text-emerald-400"></i>
-                    <span>Target Canvas (Live Output)</span>
+                    <span>Target Canvas (Live Container App)</span>
                 </div>
-                <div class="flex items-center space-x-2">
-                    <button onclick="reloadIframe()" class="hover:text-white transition-colors" title="Reload iFrame">
-                        <i class="fa-solid fa-arrows-rotate"></i>
+                <div class="flex items-center space-x-3">
+                    <button onclick="reloadIframe()" class="hover:text-white transition-colors flex items-center gap-1" title="Reload Canvas">
+                        <i class="fa-solid fa-arrows-rotate"></i> Reload
                     </button>
-                    <a id="external-link" href="http://localhost:{{ container_port }}" target="_blank" class="hover:text-white transition-colors" title="Open in New Tab">
+                    <a id="external-link" href="/proxy/{{ submodule }}" target="_blank" class="hover:text-white transition-colors" title="Open in New Tab">
                         <i class="fa-solid fa-up-right-from-square"></i>
                     </a>
                 </div>
             </div>
 
-            <!-- iFrame Container -->
+            <!-- iFrame Canvas Container -->
             <div class="flex-1 relative w-full h-full bg-white">
-                <iframe id="target-canvas" src="http://localhost:{{ container_port }}" class="w-full h-full border-none"></iframe>
+                <iframe id="target-canvas" src="/proxy/{{ submodule }}" class="w-full h-full border-none"></iframe>
             </div>
         </section>
 
@@ -124,21 +142,60 @@
 
     <!-- WORKSPACE SCRIPT -->
     <script>
-        const containerPort = "{{ container_port }}";
-        const submoduleName = "{{ submodule_name }}";
+        const currentModule = "{{ module }}";
+        const currentSubmodule = "{{ submodule }}";
+        const currentMode = "{{ mode }}";
 
-        // Reload Target Canvas iFrame
+        let activeFilename = "{% if codes %}{{ list(codes.keys())[0] }}{% endif %}";
+
+        // Initialize Active Tab Display
+        document.addEventListener("DOMContentLoaded", () => {
+            const firstTab = document.querySelector('.tab-btn span');
+            if (firstTab) {
+                activeFilename = firstTab.innerText;
+                document.getElementById('active-filename-display').innerText = activeFilename;
+            }
+        });
+
+        // Tab Switching Logic
+        function switchTab(filename) {
+            activeFilename = filename;
+            document.getElementById('active-filename-display').innerText = filename;
+
+            // Hide all textareas
+            document.querySelectorAll('.code-textarea').forEach(el => el.classList.add('hidden'));
+
+            // Show target textarea
+            const targetEditor = document.getElementById(`editor-${filename}`);
+            if (targetEditor) targetEditor.classList.remove('hidden');
+
+            // Update Tab Styles
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-cardBg/80', 'text-patchRed', 'border-borderBg', 'font-semibold', 'active-tab');
+                btn.classList.add('text-slate-400', 'bg-slate-900/40');
+            });
+
+            event.currentTarget.classList.add('bg-cardBg/80', 'text-patchRed', 'border-borderBg', 'font-semibold', 'active-tab');
+            event.currentTarget.classList.remove('text-slate-400', 'bg-slate-900/40');
+        }
+
+        // Reload Live iFrame
         function reloadIframe() {
             const iframe = document.getElementById('target-canvas');
             iframe.src = iframe.src;
         }
 
-        // Apply Code Patch to Backend Container
+        // Apply Patch Request to FastAPI
         async function applyPatch() {
-            const code = document.getElementById('code-editor').value;
+            if (!activeFilename) return;
+
+            const activeEditor = document.getElementById(`editor-${activeFilename}`);
+            if (!activeEditor) return;
+
+            const codeContent = activeEditor.value;
             const statusText = document.getElementById('patch-status');
 
-            statusText.innerText = "Applying patch...";
+            statusText.innerText = `Patching ${activeFilename}...`;
             statusText.className = "text-xs font-mono text-amber-400";
 
             try {
@@ -146,8 +203,10 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        submodule: submoduleName,
-                        code: code
+                        module: currentModule,
+                        submodule: currentSubmodule,
+                        filename: activeFilename,
+                        code: codeContent
                     })
                 });
 
@@ -156,28 +215,30 @@
                 if (response.ok) {
                     statusText.innerText = "Patch applied successfully!";
                     statusText.className = "text-xs font-mono text-emerald-400";
-                    setTimeout(reloadIframe, 800); // Reload live preview after 800ms
+                    setTimeout(reloadIframe, 600);
                 } else {
                     statusText.innerText = "Error: " + (result.detail || "Failed to apply patch.");
                     statusText.className = "text-xs font-mono text-rose-400";
                 }
             } catch (err) {
-                statusText.innerText = "Server connection error.";
+                statusText.innerText = "Server connection failed.";
                 statusText.className = "text-xs font-mono text-rose-400";
             }
         }
 
-        // Reset Container Session
-        async function resetContainer() {
-            if (!confirm("The lab environment will be reset to its initial state. Continue?")) return;
+        // Reset Lab Container
+        async function resetLab() {
+            if (!confirm("Are you sure you want to reset this lab session? Unsaved changes will be lost.")) return;
 
             try {
-                const res = await fetch(`/api/workspace/reset?submodule=${submoduleName}`, { method: 'POST' });
+                const res = await fetch(`/api/workspace/reset?module=${currentModule}&submodule=${currentSubmodule}`, { method: 'POST' });
                 if (res.ok) {
                     location.reload();
+                } else {
+                    alert("Failed to reset lab.");
                 }
             } catch (e) {
-                alert("An error occurred while resetting the lab.");
+                alert("Network error while resetting lab.");
             }
         }
     </script>

@@ -9,10 +9,9 @@
           "entrypoint": "app.py",
           "internal_port": 5000,
           "codes": {
-            "vulnerable": "target_snippet.py",
-            "fixed": "solution_snippet.py"
+            "target_snippet.py": "vulnerable",
+            "solution_snippet.py": "fixed"
           }
         }
     ]
-
 }

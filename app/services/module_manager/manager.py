@@ -15,6 +15,25 @@ class ModuleManager:
         self._submodule_index = {}
         self.discover_modules()
 
+    def read_submodule(self, module_name, submodule_name):
+        """Read the submodule's code files and return a dict of {filename: content}."""
+        if not module_name or not submodule_name:
+            return {}
+        module_entry = self.get_module_entry(module_name)
+        if not module_entry:
+            return {}
+        submodule_entry = self.get_submodule_entry(submodule_name)
+        if not submodule_entry:
+            return {}
+
+        codes = {}
+        for filename in submodule_entry.get("codes", {}).keys():
+            file_path = os.path.join(module_entry["module_folder"], submodule_name, filename)
+            if os.path.isfile(file_path):
+                with open(file_path, "r", encoding="utf-8") as fh:
+                    codes[filename] = fh.read()
+        return codes
+
     def get_modules_path(self, modules_directory):
         PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir))
         return os.path.join(PROJECT_ROOT, modules_directory)
@@ -26,10 +45,10 @@ class ModuleManager:
             return True
         return False
 
-    def is_submodule_exist(self, module_name):
-        if not module_name:
+    def is_submodule_exist(self, submodule_name):
+        if not submodule_name:
             return False
-        if module_name in self._module_index:
+        if submodule_name in self._submodule_index:
             return True
         return False
 
@@ -57,7 +76,6 @@ class ModuleManager:
                 name = str(config.get("name", "")).strip().upper()
                 description = str(config.get("description", "")).strip()
                 sub_modules = config.get("sub_modules", [])
-
                 for sub_module in sub_modules:
                     sub_module_name = str(sub_module.get("name", "")).strip().upper()
                     sub_module_description = str(sub_module.get("description", "")).strip()

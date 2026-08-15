@@ -1,9 +1,12 @@
 import asyncio
+import os.path
+
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from app.services.ai.ai_agent import RedTeamAgent
 from app.services.module_manager.manager import ModuleManager
+from app.services.container_services.docker import DockerService
 
 app = FastAPI(title="RedPatch")
 templates = Jinja2Templates(directory="app/templates")
@@ -41,6 +44,15 @@ async def get_modules(request: Request, action: str = None, module: str = None, 
 @app.get("/workspace", response_class=HTMLResponse)
 async def workspace(request: Request, module: str = None, submodule: str = None, mode: str = None):
     module_mngr = ModuleManager()
-    if not submodule and module and not module_mngr.is_submodule_exist(submodule):
+    if not submodule and module and not module_mngr.is_submodule_exist(submodule) and not module_mngr.is_module_exist(module):
         raise HTTPException(status_code=404, detail="Submodule not found")
-    return templates.TemplateResponse(request, "workspace.html", {"module": module, "submodule": submodule, "mode": mode})
+    runtime = module_mngr.get_submodule_entry(submodule).get("runtime")
+    entrypoint = module_mngr.get_submodule_entry(submodule).get("entrypoint")
+    internal_port = module_mngr.get_submodule_entry(submodule).get("internal_port")
+    path = os.path.join(module_mngr.modules_directory, module, "submodules", submodule)
+    if not runtime or not entrypoint or not internal_port or not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Submodule configuration is incomplete")
+    docker_service = DockerService(internal_port, path, entrypoint, runtime)
+    docker_service.start()
+    codes = module_mngr.read_submodule(module, submodule)
+    return templates.TemplateResponse(request, "workspace.html", {"module": module, "submodule": submodule, "mode": mode, "codes": codes})
