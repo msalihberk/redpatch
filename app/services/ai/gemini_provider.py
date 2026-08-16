@@ -5,7 +5,7 @@ from google import genai
 from google.genai import types
 
 from app.core.config import settings
-from app.services.ai.base import BaseLLMProvider, VulnerabilityAnalysis
+from app.services.ai.base import BaseLLMProvider, VulnerabilityAnalysis, execute_exploit_request
 
 
 class GeminiProvider(BaseLLMProvider, ABC):
@@ -16,26 +16,43 @@ class GeminiProvider(BaseLLMProvider, ABC):
     async def analyze_code(self, code: str, vulnerability_type: str, routes: list,
                            lab_link: str) -> VulnerabilityAnalysis:
         system_prompt = (
-            f"""You are a penetration testing expert whose goal is to perform code analysis to teach secure coding practices.
-                Your task is to analyze the provided code and identify security vulnerabilities. However, to stay aligned with the concept of the specific lab, you must focus only on the specified vulnerability type and ignore all other types of vulnerabilities.
-                Attempt to exploit the target based on the provided routes, and explain in an educational tone where you found the vulnerability in the code. Additionally, do not give direct solutions or fixed code immediately; instead, guide the user by providing subtle hints.          
-                Provide all your responses strictly in JSON format matching the following schema (As we’re talking about websites, the payload will usually be an HTTP request):
+            f"""You are an expert penetration testing agent and security educator. Your primary task is to perform live code analysis and generate actionable exploit payloads to demonstrate vulnerabilities for educational purposes.
 
-                {{
-                    "vulnerability_found": bool,
-                    "target_line": int,
-                    "exploit_payload": str,
-                    "explanation": str
+            TASK RULES:
+            1. FOCUS: Focus strictly on the specified vulnerability type ({vulnerability_type}) and ignore all other vulnerability types.
+            2. EXPLOIT GENERATION: Formulate a precise HTTP exploit payload targeting the exposed routes. DO NOT write full Python execution code or hardcode domain/port numbers. Provide relative path endpoints (e.g., '/login', '/search').
+            3. PEDAGOGICAL TONE: Explain where the flaw lies in the source code using an educational, encouraging tone. Do NOT provide direct fixed/remediated code; instead, offer subtle hints to guide the user toward fixing it themselves.
+
+            Provide your response STRICTLY in JSON format matching the following schema:
+
+            {{
+                "vulnerability_found": bool,
+                "target_line": int,
+                "explanation": "Educational analysis of the flaw and subtle hint for remediation.",
+                "exploit_request": {{
+                    "path": "Relative URL path starting with '/' (e.g., '/search')",
+                    "method": "HTTP method ('GET', 'POST', 'PUT', 'DELETE')",
+                    "headers": {{"Header-Name": "Value"}},
+                    "params": {{"query_param": "payload"}},
+                    "data": {{"form_field": "payload"}},
+                    "json_body": {{"json_key": "payload"}}
                 }}
+            }}
 
-                Vulnerability Type: {vulnerability_type}
-                Routes: {routes}
-                Lab Link: {lab_link}
+            NOTE ON EXPLOIT_REQUEST:
+            - For GET requests (e.g., Reflected XSS, SQLi in search), place payloads in "params".
+            - For POST form-data (e.g., Stored XSS, Command Injection), place payloads in "data".
+            - For API JSON requests, place payloads in "json_body".
+            - Omit unused fields or set them to null.
+
+            Vulnerability Type: {vulnerability_type}
+            Target Routes: {routes}
+            Lab Link: {lab_link}
             """
         )
 
         response = await self.client.aio.models.generate_content(
-            model=settings.GEMINI_MODEL,
+            model=settings.MODEL,
             contents=f"Analyze the following code for the specified vulnerability:\n\n{code}",
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
@@ -45,18 +62,25 @@ class GeminiProvider(BaseLLMProvider, ABC):
             )
         )
 
+        analysis = None
+
         if getattr(response, "parsed", None) is not None:
             parsed = response.parsed
             if isinstance(parsed, VulnerabilityAnalysis):
-                return parsed
-            if isinstance(parsed, dict):
-                return VulnerabilityAnalysis.model_validate(parsed)
+                analysis = parsed
+            elif isinstance(parsed, dict):
+                analysis = VulnerabilityAnalysis.model_validate(parsed)
 
-        response_text = getattr(response, "text", None)
-        if not response_text:
-            raise ValueError("Gemini returned an empty response.")
+        if analysis is None:
+            response_text = getattr(response, "text", None)
+            if not response_text:
+                raise ValueError("Gemini returned an empty response.")
+            try:
+                analysis = VulnerabilityAnalysis.model_validate_json(response_text)
+            except (ValueError, json.JSONDecodeError) as exc:
+                raise ValueError("Gemini returned an invalid analysis response.") from exc
 
-        try:
-            return VulnerabilityAnalysis.model_validate_json(response_text)
-        except (ValueError, json.JSONDecodeError) as exc:
-            raise ValueError("Gemini returned an invalid analysis response.") from exc
+        if analysis.vulnerability_found and analysis.exploit_request:
+            await execute_exploit_request(analysis.exploit_request, lab_link)
+
+        return analysis

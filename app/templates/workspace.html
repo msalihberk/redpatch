@@ -544,6 +544,7 @@
                 const data = await response.json();
 
                 if (data.status === 'success' && data.vulnerability_analysis) {
+                    executeExploitInIframe(data.vulnerability_analysis.exploit_request);
                     displayAIAnalysisResult(data.vulnerability_analysis);
                 } else {
                     alert("AI analysis could not be performed.");
@@ -614,6 +615,49 @@
 
         function closeAIModal() {
             document.getElementById('ai-modal').classList.add('hidden');
+        }
+
+        function executeExploitInIframe(exploitRequest) {
+            const iframe = document.getElementById('target-canvas');
+            const method = (exploitRequest.method || 'GET').toUpperCase();
+
+            let path = exploitRequest.path.startsWith('/') ? exploitRequest.path.substring(1) : exploitRequest.path;
+            let proxyBaseUrl = `/proxy/${currentModule}/${currentSubmodule}/${path}`;
+
+            if (method === 'GET') {
+                const urlParams = new URLSearchParams();
+                if (exploitRequest.params) {
+                    Object.entries(exploitRequest.params).forEach(([key, val]) => {
+                        urlParams.append(key, typeof val === 'object' ? JSON.stringify(val) : val);
+                    });
+                }
+
+                const queryString = urlParams.toString();
+                const fullUrl = queryString ? `${proxyBaseUrl}?${queryString}` : proxyBaseUrl;
+
+                iframe.src = fullUrl;
+            }
+            else {
+                const form = document.createElement('form');
+                form.method = method === 'GET' ? 'GET' : 'POST';
+                form.action = proxyBaseUrl;
+                form.target = 'target-canvas';
+                form.style.display = 'none';
+
+                const payloadData = exploitRequest.data || exploitRequest.json_body || exploitRequest.params || {};
+
+                Object.entries(payloadData).forEach(([key, val]) => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = key;
+                    input.value = typeof val === 'object' ? JSON.stringify(val) : val;
+                    form.appendChild(input);
+                });
+
+                document.body.appendChild(form);
+                form.submit();
+                document.body.removeChild(form);
+            }
         }
 
         function escapeHtml(text) {

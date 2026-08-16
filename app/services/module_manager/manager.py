@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 
 
@@ -37,15 +38,15 @@ class ModuleManager:
         if not entry:
             return ""
 
-        codes = entry.get("codes", {})
+        module = entry.get("main", "")
+        main_py = os.path.join(ModuleManager().modules_directory, module, "submodules", submodule_name, "main.py")
         routes = []
 
-        for code_content in codes.values():
-            if isinstance(code_content, str):
-                for line in code_content.splitlines():
-                    stripped = line.strip()
-                    if stripped.startswith("@app."):
-                        routes.append(stripped)
+        with open(main_py) as file:
+            for line in file.readlines():
+                stripped = line.strip()
+                if stripped.startswith("@app."):
+                    routes.append(stripped)
 
         return "\n".join(routes)
 

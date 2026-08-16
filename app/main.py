@@ -126,7 +126,7 @@ async def ai_analysis(payload: AIAnalysisRequest):
         result = await RedTeamAgent().run_attack(code, vulnerability_type, routes, lab_link)
     except ValueError as e:
         logger.warning("AI analysis configuration or response error: %s", e)
-        raise HTTPException(status_code=503, detail="AI analysis is unavailable. Check the Gemini API configuration.") from e
+        raise HTTPException(status_code=503, detail="AI analysis is unavailable. Check the API configuration.") from e
     except Exception as e:
         logger.exception("AI analysis provider request failed %s", e)
         raise HTTPException(status_code=502, detail="AI analysis provider request failed. Please try again later. And look at the logs for more details.") from e
