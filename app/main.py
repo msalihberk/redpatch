@@ -82,8 +82,25 @@ async def workspace(request: Request, module: str = None, submodule: str = None,
     path = os.path.join(module_mngr.modules_directory, module, "submodules", submodule)
     if not runtime or not entrypoint or not internal_port or not os.path.exists(path):
         raise HTTPException(status_code=404, detail="Submodule configuration is incomplete")
-    
-    codes = module_mngr.read_submodule(module, submodule)
+    # Prefer session-specific temporary workspace copies when available so the editor
+    # shows the current session's working files (changes applied there on 'Apply').
+    session_id = get_session_id(request)
+    tmp_workdir = DockerService.get_work_dir_for(session_id, path)
+
+    codes = {}
+    sub_entry = module_mngr.get_submodule_entry(submodule)
+    for filename in sub_entry.get("codes", {}).keys():
+        # check session temp copy first
+        tmp_path = os.path.join(tmp_workdir, filename)
+        orig_path = os.path.join(path, filename)
+        if os.path.isfile(tmp_path):
+            with open(tmp_path, "r", encoding="utf-8") as fh:
+                codes[filename] = fh.read()
+        elif os.path.isfile(orig_path):
+            with open(orig_path, "r", encoding="utf-8") as fh:
+                codes[filename] = fh.read()
+        else:
+            codes[filename] = ""
     return templates.TemplateResponse(request, "workspace.html", {"module": module, "submodule": submodule, "mode": mode, "codes": codes})
 
 
@@ -196,6 +213,15 @@ async def workspace_patch(request: Request, payload: PatchRequest):
         container_name=container_name,
         session_id=session_id,
     )
+
+    # Validate that the filename is part of the declared submodule codes mapping.
+    sub_entry = module_mngr.get_submodule_entry(payload.submodule)
+    allowed_filenames = set(sub_entry.get("codes", {}).keys())
+    if payload.filename not in allowed_filenames:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Target file '{payload.filename}' is not allowed to be modified.",
+        )
 
     patched = docker_service.patch_code(payload.filename, payload.code)
 
