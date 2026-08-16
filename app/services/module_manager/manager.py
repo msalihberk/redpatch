@@ -29,6 +29,27 @@ class ModuleManager:
             return ""
 
     @staticmethod
+    def get_routes_from_submodule(submodule_name: str) -> str:
+        if not submodule_name:
+            return ""
+
+        entry = ModuleManager().get_submodule_entry(submodule_name)
+        if not entry:
+            return ""
+
+        codes = entry.get("codes", {})
+        routes = []
+
+        for code_content in codes.values():
+            if isinstance(code_content, str):
+                for line in code_content.splitlines():
+                    stripped = line.strip()
+                    if stripped.startswith("@app."):
+                        routes.append(stripped)
+
+        return "\n".join(routes)
+
+    @staticmethod
     def _relative_file_path(base_path, filename):
         matches = list(Path(base_path).rglob(filename))
         if len(matches) != 1 or not matches[0].is_file():

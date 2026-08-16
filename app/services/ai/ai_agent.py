@@ -14,5 +14,5 @@ class RedTeamAgent:
         else:
             raise ValueError(f"Unsupported or undefined LLM provider: {provider_name}")
 
-    async def run_attack(self, code: str) -> VulnerabilityAnalysis:
-        return await self.provider.analyze_code(code)
+    async def run_attack(self, code: str, vulnerability_type: str, routes: list, lab_link: str) -> VulnerabilityAnalysis:
+        return await self.provider.analyze_code(code, vulnerability_type, routes, lab_link)

@@ -43,7 +43,23 @@ class DockerService:
             container = client.containers.get(container_name)
             container.reload()
             return container
-        except NotFound:
+        except (NotFound, APIError, Exception):
+            return None
+
+    @staticmethod
+    def get_container_port(container_name: str, internal_port: int) -> int | None:
+        container = DockerService.get_container(container_name)
+        if not container:
+            return None
+
+        try:
+            container.reload()
+            ports = container.attrs.get("NetworkSettings", {}).get("Ports", {})
+            port_bindings = ports.get(f"{internal_port}/tcp")
+            if port_bindings and len(port_bindings) > 0:
+                return int(port_bindings[0]["HostPort"])
+            return None
+        except Exception:
             return None
 
     def _prepare_workspace(self, force_reset: bool = False) -> None:
@@ -99,12 +115,14 @@ class DockerService:
 
     def patch_code(self, relative_filepath: str, content: str) -> bool:
         """Writes updated code content directly to the isolated workspace."""
-        target_file = self.work_dir / relative_filepath
         try:
+            self._prepare_workspace()
+            target_file = (self.work_dir / relative_filepath).resolve()
+            target_file.relative_to(self.work_dir.resolve())
             target_file.parent.mkdir(parents=True, exist_ok=True)
             target_file.write_text(content, encoding="utf-8")
             return True
-        except Exception:
+        except (OSError, ValueError):
             return False
 
     def _resolve_mapped_port(self) -> int:

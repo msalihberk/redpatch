@@ -92,6 +92,38 @@ async def workspace(request: Request, module: str = None, submodule: str = None,
     files_bundle = module_mngr.get_workspace_files(module, submodule, tmp_workdir)
     return templates.TemplateResponse(request, "workspace.html", {"module": module, "submodule": submodule, "mode": mode, "codes": files_bundle})
 
+@app.api_route("/api/workspace/ai-analysis", methods=["POST"])
+async def ai_analysis(request: Request, module: str = None, submodule: str = None, code: str = None):
+    agent = RedTeamAgent()
+    module_mngr = ModuleManager()
+    if not module or not submodule:
+        raise HTTPException(status_code=404, detail="Module or submodule not specified")
+    if not module_mngr.is_module_exist(module) or not module_mngr.is_submodule_exist(submodule, module):
+        raise HTTPException(status_code=404, detail="Module or submodule not found")
+
+    """code: str, vulnerability_type: str, routes: list, lab_link: str
+        
+        module: currentModule,
+        submodule: currentSubmodule,
+        filename: activeFilename,
+        code: codeContent
+        
+    """
+
+    vulnerability_type = f"{module}_{submodule}"
+    lab_link = f"http://localhost:{DockerService.get_container_port(f'redpatch_{module}_{submodule}', module_mngr.get_submodule_entry(submodule).get('internal_port'))}/"
+    routes = module_mngr.get_routes_from_submodule(submodule)
+
+    result = await agent.run_attack(code, vulnerability_type, routes, lab_link)
+
+    return JSONResponse(
+        status_code=200,
+        content={
+            "status": "success",
+            "vulnerability_analysis": result.dict()
+        }
+    )
+
 
 @app.api_route("/api/workspace/reset", methods=["POST"])
 async def workspace_reset(request: Request, module: str = None, submodule: str = None):
@@ -100,7 +132,7 @@ async def workspace_reset(request: Request, module: str = None, submodule: str =
         raise HTTPException(status_code=404, detail="Module or submodule not specified")
 
     if not module_mngr.is_module_exist(module) or not module_mngr.is_submodule_exist(submodule, module):
-        raise HTTPException(status_code=404, detail="Submodule not found")
+        raise HTTPException(status_code=404, detail="Module or submodule not found")
 
     sub_entry = module_mngr.get_submodule_entry(submodule)
     runtime = sub_entry.get("runtime")
