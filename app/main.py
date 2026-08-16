@@ -1,4 +1,5 @@
 import os.path
+import uuid
 
 import httpx
 from fastapi import FastAPI, Request, Response, HTTPException
@@ -8,7 +9,14 @@ from fastapi.templating import Jinja2Templates
 from app.services.ai.ai_agent import RedTeamAgent
 from app.services.container_services.docker import DockerService
 from app.services.module_manager.manager import ModuleManager
+from pydantic import BaseModel
 
+
+class PatchRequest(BaseModel):
+    module: str
+    submodule: str
+    filename: str
+    code: str
 
 async def lifespan(app: FastAPI):
     yield
@@ -16,6 +24,23 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="RedPatch", lifespan=lifespan)
 templates = Jinja2Templates(directory="app/templates")
 agent = RedTeamAgent()
+
+@app.middleware("http")
+async def ensure_session_cookie(request: Request, call_next):
+    session_id = request.cookies.get("session_id")
+    if not session_id:
+        session_id = str(uuid.uuid4())
+        request.state.session_id = session_id
+        response = await call_next(request)
+        response.set_cookie(key="session_id", value=session_id, httponly=True)
+        return response
+
+    request.state.session_id = session_id
+    return await call_next(request)
+
+
+def get_session_id(request: Request) -> str:
+    return getattr(request.state, "session_id", request.cookies.get("session_id", "default"))
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
@@ -102,7 +127,7 @@ async def proxy_submodule(module: str, submodule: str, request: Request, path: s
     pth = os.path.join(module_mngr.modules_directory, module, "submodules", submodule)
     if not runtime or not entrypoint or not internal_port or not os.path.exists(pth):
         raise HTTPException(status_code=404, detail="Submodule configuration is incomplete")
-    docker_service = DockerService(internal_port, pth, entrypoint, runtime, f"redpatch_{module}_{submodule}")
+    docker_service = DockerService(internal_port, pth, entrypoint, runtime, f"redpatch_{module}_{submodule}", get_session_id(request))
     container_port = docker_service.start()
 
     if not container_port:
@@ -131,3 +156,59 @@ async def proxy_submodule(module: str, submodule: str, request: Request, path: s
             status_code=resp.status_code,
             headers=dict(resp.headers)
         )
+
+@app.post("/api/workspace/patch")
+async def workspace_patch(request: Request, payload: PatchRequest):
+    session_id = get_session_id(request)
+    module_mngr = ModuleManager()
+
+    if not module_mngr.is_module_exist(
+        payload.module
+    ) or not module_mngr.is_submodule_exist(payload.submodule):
+        raise HTTPException(status_code=404, detail="Submodule not found")
+
+    runtime = module_mngr.get_submodule_entry(payload.submodule).get("runtime")
+    entrypoint = module_mngr.get_submodule_entry(payload.submodule).get(
+        "entrypoint"
+    )
+    internal_port = module_mngr.get_submodule_entry(payload.submodule).get(
+        "internal_port"
+    )
+    path = os.path.join(
+        module_mngr.modules_directory,
+        payload.module,
+        "submodules",
+        payload.submodule,
+    )
+
+    if not runtime or not entrypoint or not internal_port or not os.path.exists(path):
+        raise HTTPException(
+            status_code=404, detail="Submodule configuration is incomplete"
+        )
+
+    container_name = f"redpatch_{payload.module}_{payload.submodule}"
+
+    docker_service = DockerService(
+        port=internal_port,
+        path=path,
+        entrypoint=entrypoint,
+        runtime=runtime,
+        container_name=container_name,
+        session_id=session_id,
+    )
+
+    patched = docker_service.patch_code(payload.filename, payload.code)
+
+    if not patched:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Target file '{payload.filename}' could not be patched or does not exist in workspace.",
+        )
+
+    return JSONResponse(
+        status_code=200,
+        content={
+            "status": "success",
+            "message": f"File '{payload.filename}' patched successfully.",
+        },
+    )

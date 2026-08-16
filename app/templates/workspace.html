@@ -174,14 +174,12 @@
         const currentMode = "{{ mode }}";
         const targetProxyUrl = `/proxy/${currentModule}/${currentSubmodule}`;
 
-        // Load source code files from JSON script element
         const rawFilesData = JSON.parse(document.getElementById('files-data').textContent);
 
         let monacoEditor = null;
         let fileModels = {};
         let activeFilename = "{% if codes %}{{ (codes.keys() | list)[0] }}{% endif %}";
 
-        // Extension to Language Mapping
         function getLanguageByExtension(filename) {
             const ext = filename.split('.').pop().toLowerCase();
             const map = {
@@ -208,7 +206,6 @@
             return map[ext] || null;
         }
 
-        // Automatic Language Detection (Fallback for extension-less files or unknown types)
         function autoDetectLanguage(code) {
             if (!code || !code.trim()) return 'plaintext';
             const sample = code.trim();
@@ -228,16 +225,13 @@
             return 'plaintext';
         }
 
-        // Determine language name for a given file
         function resolveLanguage(filename, content) {
             return getLanguageByExtension(filename) || autoDetectLanguage(content);
         }
 
-        // Configure Monaco Loader
         require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
 
         require(['vs/editor/editor.main'], function () {
-            // Create in-memory models for each file
             Object.keys(rawFilesData).forEach(filename => {
                 const content = rawFilesData[filename];
                 const lang = resolveLanguage(filename, content);
@@ -247,7 +241,6 @@
                 };
             });
 
-            // Initialize Monaco Editor
             const container = document.getElementById('monaco-editor-container');
             const initialFile = activeFilename && fileModels[activeFilename];
 
@@ -276,7 +269,6 @@
             document.getElementById('active-language-display').innerText = lang.toUpperCase();
         }
 
-        // Tab Switching Logic
         function switchTab(filename, evt) {
             if (!monacoEditor || !fileModels[filename]) return;
 
@@ -295,7 +287,6 @@
             }
         }
 
-        // Start Container Logic
         async function startContainer() {
             const startBtn = document.getElementById('start-btn');
             const spinner = document.getElementById('loading-spinner');
@@ -323,7 +314,7 @@
                         return;
                     }
                 } catch (e) {
-                    // Container still starting
+                    // Waiting for container startup
                 }
 
                 attempts++;
@@ -333,14 +324,13 @@
                     spinner.classList.remove('flex');
                     spinner.classList.add('hidden');
                     startBtn.classList.remove('hidden');
-                    alert("Container failed to respond. Please click Start again or check backend logs.");
+                    alert("Container failed to respond. Please click Start again.");
                 }
             };
 
             pollServer();
         }
 
-        // Reload Live iFrame
         function reloadIframe() {
             const iframe = document.getElementById('target-canvas');
             if (iframe.src && iframe.src !== "about:blank") {
@@ -348,11 +338,11 @@
             }
         }
 
-        // Apply Patch Request to Backend
         async function applyPatch() {
-            if (!activeFilename || !monacoEditor) return;
+            if (!activeFilename || !monacoEditor || !fileModels[activeFilename]) return;
 
-            const codeContent = monacoEditor.getValue();
+            // Get code directly from active Monaco model
+            const codeContent = fileModels[activeFilename].model.getValue();
             const statusText = document.getElementById('patch-status');
 
             statusText.innerText = `Patching ${activeFilename}...`;
@@ -375,7 +365,7 @@
                 if (response.ok) {
                     statusText.innerText = "Patch applied successfully!";
                     statusText.className = "text-xs font-mono text-emerald-400";
-                    setTimeout(reloadIframe, 600);
+                    setTimeout(reloadIframe, 800);
                 } else {
                     statusText.innerText = "Error: " + (result.detail || "Failed to apply patch.");
                     statusText.className = "text-xs font-mono text-rose-400";
@@ -386,7 +376,6 @@
             }
         }
 
-        // Reset Lab Container
         async function resetLab() {
             if (!confirm("Are you sure you want to reset this lab session? Unsaved changes will be lost.")) return;
 
@@ -429,12 +418,6 @@
                 `;
             }
         }
-
-        // Send signal to stop container on tab close
-        window.addEventListener("beforeunload", () => {
-            const stopUrl = `/api/workspace/stop?module=${encodeURIComponent(currentModule)}&submodule=${encodeURIComponent(currentSubmodule)}`;
-            navigator.sendBeacon(stopUrl);
-        });
     </script>
 </body>
 </html>

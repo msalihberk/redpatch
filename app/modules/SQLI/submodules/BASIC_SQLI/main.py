@@ -1,5 +1,7 @@
 import sqlite3
 import uvicorn
+from pathlib import Path
+BASE_DIR = Path(__file__).resolve().parent
 from fastapi import FastAPI, Request, status
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
@@ -9,7 +11,7 @@ from codes.solutions.solution_snippet import authenticate_user as secure_authent
 
 app = FastAPI(title="SQL Injection Lab Submodule")
 
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 
 class LoginPayload(BaseModel):
@@ -18,7 +20,7 @@ class LoginPayload(BaseModel):
 
 
 def init_db():
-    conn = sqlite3.connect("vulnerable.db")
+    conn = sqlite3.connect(BASE_DIR / "vulnerable.db")
     cursor = conn.cursor()
     cursor.execute("DROP TABLE IF EXISTS users")
     cursor.execute("""
