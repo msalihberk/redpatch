@@ -1,5 +1,4 @@
 import json
-import asyncio
 from abc import ABC
 
 from google import genai
@@ -14,30 +13,28 @@ class GeminiProvider(BaseLLMProvider, ABC):
         settings.validate()
         self.client = genai.Client(api_key=settings.API_KEY)
 
-    async def analyze_code(self, code: str, vulnerability_type: str, routes: list, lab_link: str) -> VulnerabilityAnalysis:
+    async def analyze_code(self, code: str, vulnerability_type: str, routes: list,
+                           lab_link: str) -> VulnerabilityAnalysis:
         system_prompt = (
             f"""You are a penetration testing expert whose goal is to perform code analysis to teach secure coding practices.
                 Your task is to analyze the provided code and identify security vulnerabilities. However, to stay aligned with the concept of the specific lab, you must focus only on the specified vulnerability type and ignore all other types of vulnerabilities.
                 Attempt to exploit the target based on the provided routes, and explain in an educational tone where you found the vulnerability in the code. Additionally, do not give direct solutions or fixed code immediately; instead, guide the user by providing subtle hints.          
                 Provide all your responses strictly in JSON format matching the following schema (As we’re talking about websites, the payload will usually be an HTTP request):
 
-                {
+                {{
                     "vulnerability_found": bool,
                     "target_line": int,
                     "exploit_payload": str,
                     "explanation": str
-                }
-                
+                }}
+
                 Vulnerability Type: {vulnerability_type}
                 Routes: {routes}
                 Lab Link: {lab_link}
             """
         )
 
-        # The Gemini SDK method is synchronous. Run it in a worker thread so an
-        # analysis request does not block FastAPI's event loop.
-        response = await asyncio.to_thread(
-            self.client.models.generate_content,
+        response = await self.client.aio.models.generate_content(
             model=settings.GEMINI_MODEL,
             contents=f"Analyze the following code for the specified vulnerability:\n\n{code}",
             config=types.GenerateContentConfig(

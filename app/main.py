@@ -1,5 +1,6 @@
 import os.path
 import uuid
+import logging
 
 import httpx
 from fastapi import FastAPI, Request, Response, HTTPException
@@ -9,7 +10,9 @@ from fastapi.templating import Jinja2Templates
 from app.services.ai.ai_agent import RedTeamAgent
 from app.services.container_services.docker import DockerService
 from app.services.module_manager.manager import ModuleManager
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
 
 
 class PatchRequest(BaseModel):
@@ -18,13 +21,17 @@ class PatchRequest(BaseModel):
     filename: str
     code: str
 
+
+class AIAnalysisRequest(BaseModel):
+    module: str = Field(min_length=1, max_length=100)
+    submodule: str = Field(min_length=1, max_length=100)
+    code: str = Field(max_length=200_000)
+
 async def lifespan(app: FastAPI):
     yield
     DockerService.cleanup_all_redpatch_containers()
 app = FastAPI(title="RedPatch", lifespan=lifespan)
 templates = Jinja2Templates(directory="app/templates")
-agent = RedTeamAgent()
-
 @app.middleware("http")
 async def ensure_session_cookie(request: Request, call_next):
     session_id = request.cookies.get("session_id")
@@ -44,6 +51,8 @@ def get_session_id(request: Request) -> str:
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
+    if request.url.path.startswith("/api/"):
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
     return templates.TemplateResponse(request,
         "error.html",
         {
@@ -92,35 +101,41 @@ async def workspace(request: Request, module: str = None, submodule: str = None,
     files_bundle = module_mngr.get_workspace_files(module, submodule, tmp_workdir)
     return templates.TemplateResponse(request, "workspace.html", {"module": module, "submodule": submodule, "mode": mode, "codes": files_bundle})
 
-@app.api_route("/api/workspace/ai-analysis", methods=["POST"])
-async def ai_analysis(request: Request, module: str = None, submodule: str = None, code: str = None):
-    agent = RedTeamAgent()
+@app.post("/api/workspace/ai-analysis")
+async def ai_analysis(payload: AIAnalysisRequest):
+    module, submodule, code = payload.module, payload.submodule, payload.code
     module_mngr = ModuleManager()
     if not module or not submodule:
         raise HTTPException(status_code=404, detail="Module or submodule not specified")
     if not module_mngr.is_module_exist(module) or not module_mngr.is_submodule_exist(submodule, module):
         raise HTTPException(status_code=404, detail="Module or submodule not found")
 
-    """code: str, vulnerability_type: str, routes: list, lab_link: str
-        
-        module: currentModule,
-        submodule: currentSubmodule,
-        filename: activeFilename,
-        code: codeContent
-        
-    """
-
     vulnerability_type = f"{module}_{submodule}"
-    lab_link = f"http://localhost:{DockerService.get_container_port(f'redpatch_{module}_{submodule}', module_mngr.get_submodule_entry(submodule).get('internal_port'))}/"
+    internal_port = module_mngr.get_submodule_entry(submodule).get("internal_port")
+    container_port = DockerService.get_container_port(
+        f"redpatch_{module}_{submodule}", internal_port
+    )
+    lab_link = (
+        f"http://localhost:{container_port}/"
+        if container_port
+        else "The lab is not currently running; analyze the code and routes only."
+    )
     routes = module_mngr.get_routes_from_submodule(submodule)
 
-    result = await agent.run_attack(code, vulnerability_type, routes, lab_link)
+    try:
+        result = await RedTeamAgent().run_attack(code, vulnerability_type, routes, lab_link)
+    except ValueError as e:
+        logger.warning("AI analysis configuration or response error: %s", e)
+        raise HTTPException(status_code=503, detail="AI analysis is unavailable. Check the Gemini API configuration.") from e
+    except Exception as e:
+        logger.exception("AI analysis provider request failed %s", e)
+        raise HTTPException(status_code=502, detail="AI analysis provider request failed. Please try again later. And look at the logs for more details.") from e
 
     return JSONResponse(
         status_code=200,
         content={
             "status": "success",
-            "vulnerability_analysis": result.dict()
+            "vulnerability_analysis": result.model_dump()
         }
     )
 
@@ -150,7 +165,11 @@ async def workspace_reset(request: Request, module: str = None, submodule: str =
         container.stop(timeout=2)
     except Exception:
         pass
-    container.remove(force=True)
+    try:
+        container.remove(force=True)
+    except Exception as exc:
+        logger.exception("Could not remove lab container %s", container.name)
+        raise HTTPException(status_code=503, detail="The lab container could not be reset.") from exc
 
     return JSONResponse(
         status_code=200,

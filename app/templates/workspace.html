@@ -526,19 +526,19 @@
             btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>Analyzing...</span>`;
 
             try {
-                const queryParams = new URLSearchParams({
-                    module: currentModule,
-                    submodule: currentSubmodule,
-                    code: currentCode
-                });
-
-                const response = await fetch(`/api/workspace/ai-analysis?${queryParams.toString()}`, {
+                const response = await fetch('/api/workspace/ai-analysis', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        module: currentModule,
+                        submodule: currentSubmodule,
+                        code: currentCode
+                    })
                 });
 
                 if (!response.ok) {
-                    throw new Error(`Analysis error: ${response.statusText}`);
+                    const error = await response.json().catch(() => ({}));
+                    throw new Error(error.detail || `Analysis error: ${response.statusText}`);
                 }
 
                 const data = await response.json();
@@ -576,8 +576,8 @@
             }
 
             const statusBadge = analysis.vulnerability_found
-                ? `<span class="bg-red-900/60 text-red-400 border border-red-700 px-2.5 py-1 rounded text-xs font-semibold">Zafiyet Tespit Edildi</span>`
-                : `<span class="bg-emerald-900/60 text-emerald-400 border border-emerald-700 px-2.5 py-1 rounded text-xs font-semibold">Güvenli / Zafiyet Bulunamadı</span>`;
+                ? `<span class="bg-red-900/60 text-red-400 border border-red-700 px-2.5 py-1 rounded text-xs font-semibold">Vulnerability Found</span>`
+                : `<span class="bg-emerald-900/60 text-emerald-400 border border-emerald-700 px-2.5 py-1 rounded text-xs font-semibold">Secure / No Vulnerability Found</span>`;
 
             content.innerHTML = `
                 <div class="space-y-4">

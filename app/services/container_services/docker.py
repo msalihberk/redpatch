@@ -43,7 +43,7 @@ class DockerService:
             container = client.containers.get(container_name)
             container.reload()
             return container
-        except (NotFound, APIError, Exception):
+        except Exception:
             return None
 
     @staticmethod
