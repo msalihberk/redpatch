@@ -80,18 +80,7 @@
 
         <!-- LEFT PANEL: CODE EDITOR & FILE TABS -->
         <section class="w-1/2 border-r border-borderBg flex flex-col bg-cardBg/30">
-            <!-- File Tabs Bar -->
             <div class="h-10 bg-slate-900/80 border-b border-borderBg flex items-center px-2 space-x-1 overflow-x-auto text-xs font-mono" id="file-tabs">
-                {% if codes %}
-                    {% for filename in codes.keys() %}
-                    <button onclick="switchTab('{{ filename }}', event)" id="tab-{{ loop.index }}" class="tab-btn px-3 py-1.5 rounded-t border-t border-x border-transparent hover:text-white flex items-center gap-2 transition-all {% if loop.first %}bg-cardBg/80 text-patchRed border-borderBg font-semibold active-tab{% else %}text-slate-400 bg-slate-900/40{% endif %}">
-                        <i class="fa-regular fa-file-code"></i>
-                        <span>{{ filename }}</span>
-                    </button>
-                    {% endfor %}
-                {% else %}
-                    <span class="text-slate-500 px-3 py-1">No source files available</span>
-                {% endif %}
             </div>
 
             <!-- Context Info Bar -->
@@ -108,10 +97,18 @@
             <!-- Action Footer -->
             <div class="h-14 bg-slate-900/80 border-t border-borderBg px-4 flex items-center justify-between">
                 <span id="patch-status" class="text-xs text-slate-400 font-mono"></span>
-                <button onclick="applyPatch()" class="bg-patchRed hover:bg-red-600 text-white font-medium text-xs px-4 py-2 rounded shadow transition-all flex items-center gap-2">
-                    <i class="fa-solid fa-wand-magic-sparkles"></i>
-                    Apply Changes & Execute
-                </button>
+                <div class="flex items-center gap-2">
+                    <button id="hint-btn" onclick="showHintsPopup()" class="bg-yellow-700 hover:bg-yellow-600 text-white font-medium text-xs px-3 py-2 rounded shadow transition-all" title="Show Hints">
+                        <i class="fa-solid fa-lightbulb"></i> Hint
+                    </button>
+                    <button id="solution-btn" onclick="showSolutionPopup()" class="bg-slate-700 hover:bg-slate-600 text-white font-medium text-xs px-3 py-2 rounded shadow transition-all" title="Show Solution">
+                        <i class="fa-solid fa-check-circle"></i> Solution
+                    </button>
+                    <button onclick="applyPatch()" class="bg-patchRed hover:bg-red-600 text-white font-medium text-xs px-4 py-2 rounded shadow transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        Apply Changes & Execute
+                    </button>
+                </div>
             </div>
         </section>
 
@@ -162,26 +159,41 @@
 
     </main>
 
-    <!-- Pass backend template codes cleanly into JS -->
     <script id="files-data" type="application/json">
         {{ codes | tojson | safe if codes else '{}' }}
     </script>
 
-    <!-- WORKSPACE SCRIPT -->
+    <div id="solution-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+        <div class="bg-slate-800 text-slate-200 rounded-md w-3/4 max-w-3xl p-4">
+            <div class="flex justify-between items-center mb-3">
+                <h3 id="solution-title" class="text-lg font-semibold">Solution / Hint</h3>
+                <button onclick="closeSolutionPopup()" class="text-slate-400 hover:text-white">✕</button>
+            </div>
+            <pre id="solution-content" class="bg-slate-900 p-3 rounded text-sm overflow-auto max-h-72"></pre>
+            <div class="mt-3 text-right">
+                <button onclick="closeSolutionPopup()" class="bg-slate-700 hover:bg-slate-600 text-white text-xs px-3 py-1.5 rounded">Close</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const currentModule = "{{ module }}";
         const currentSubmodule = "{{ submodule }}";
         const currentMode = "{{ mode }}";
         const targetProxyUrl = `/proxy/${currentModule}/${currentSubmodule}`;
 
-        const rawFilesData = JSON.parse(document.getElementById('files-data').textContent || '{}');
+        const rawFilesData = JSON.parse(document.getElementById('files-data').textContent || '{}') || {};
+
+        const vulnerablesData = rawFilesData.vulnerables || {};
+        const solutionsData = rawFilesData.solutions || {};
+        const hintsData = rawFilesData.hints || {};
 
         let monacoEditor = null;
         let fileModels = {};
-        let activeFilename = null; // will be resolved from rawFilesData or server
+        let activeFilename = null;
 
         function getInitialActiveFilename() {
-            const keys = Object.keys(rawFilesData || {});
+            const keys = Object.keys(vulnerablesData || {});
             return keys.length ? keys[0] : null;
         }
 
@@ -260,9 +272,8 @@
         require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
 
         require(['vs/editor/editor.main'], function () {
-            // initialize models from server-provided rawFilesData
-            Object.keys(rawFilesData || {}).forEach(filename => {
-                const content = rawFilesData[filename] || '';
+            Object.keys(vulnerablesData || {}).forEach(filename => {
+                const content = vulnerablesData[filename] || '';
                 const lang = resolveLanguage(filename, content);
                 fileModels[filename] = {
                     model: monaco.editor.createModel(content, lang),
@@ -270,7 +281,9 @@
                 };
             });
 
-            // determine initial active file
+            const solutionsMap = Object.assign({}, solutionsData || {});
+            const hintsMap = Object.assign({}, hintsData || {});
+
             activeFilename = getInitialActiveFilename();
 
             const container = document.getElementById('monaco-editor-container');
@@ -292,7 +305,17 @@
 
             renderTabs();
             if (activeFilename) updateUIHeader(activeFilename);
+
+            window.__solutionsMap = solutionsMap;
+            window.__hintsMap = hintsMap;
         });
+
+        (async () => {
+            if (!Object.keys(rawFilesData || {}).length) {
+                const files = await fetchWorkspaceFiles();
+                if (files) await reloadEditorFiles(files);
+            }
+        })();
 
         async function fetchWorkspaceFiles() {
             try {
@@ -306,10 +329,12 @@
 
         async function reloadEditorFiles(newFiles) {
             if (!newFiles) return;
-            Object.keys(newFiles).forEach(filename => {
-                const content = newFiles[filename] || '';
+            const vuln = newFiles.vulnerables || {};
+            const sols = newFiles.solutions || {};
+
+            Object.keys(vuln).forEach(filename => {
+                const content = vuln[filename] || '';
                 if (fileModels[filename]) {
-                    // update existing model value if different
                     const model = fileModels[filename].model;
                     if (model.getValue() !== content) model.setValue(content);
                 } else {
@@ -318,7 +343,9 @@
                 }
             });
 
-            // ensure activeFilename exists
+            window.__solutionsMap = Object.assign({}, sols || {});
+            window.__hintsMap = Object.assign({}, newFiles.hints || {});
+
             if (!activeFilename) activeFilename = Object.keys(fileModels)[0] || null;
 
             // if current model is null, set it
@@ -328,6 +355,54 @@
 
             renderTabs();
             if (activeFilename) updateUIHeader(activeFilename);
+        }
+
+        function showSolutionPopup() {
+            const modal = document.getElementById('solution-modal');
+            const contentEl = document.getElementById('solution-content');
+            const titleEl = document.getElementById('solution-title');
+            if (!activeFilename) {
+                contentEl.innerText = 'No file selected.';
+                titleEl.innerText = 'Solution / Hint';
+                modal.classList.remove('hidden');
+                return;
+            }
+
+            const sols = window.__solutionsMap || {};
+            const sol = sols[activeFilename];
+            if (!sol) {
+                contentEl.innerText = 'No solution available for this file.';
+            } else {
+                contentEl.innerText = sol;
+            }
+            titleEl.innerText = `Solution: ${activeFilename}`;
+            modal.classList.remove('hidden');
+        }
+
+        function closeSolutionPopup() {
+            document.getElementById('solution-modal').classList.add('hidden');
+        }
+
+        function showHintsPopup() {
+            const modal = document.getElementById('solution-modal');
+            const contentEl = document.getElementById('solution-content');
+            const titleEl = document.getElementById('solution-title');
+            if (!activeFilename) {
+                contentEl.innerText = 'No file selected.';
+                titleEl.innerText = 'Hints';
+                modal.classList.remove('hidden');
+                return;
+            }
+
+            const hints = window.__hintsMap || {};
+            const list = hints[activeFilename];
+            if (!list || !list.length) {
+                contentEl.innerText = 'No hints available for this file.';
+            } else {
+                contentEl.innerText = list.map((h, i) => `${i+1}. ${h}`).join('\n\n');
+            }
+            titleEl.innerText = `Hints: ${activeFilename}`;
+            modal.classList.remove('hidden');
         }
 
         function updateUIHeader(filename) {

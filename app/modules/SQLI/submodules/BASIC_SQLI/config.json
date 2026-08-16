@@ -1,0 +1,11 @@
+{
+  "hints": {
+    "target_snippet.py": [
+      "Do not include user input in an SQL query as plain text.",
+      "Pass query parameters using parameter binding feature."
+    ]
+  },
+  "solutions": {
+    "target_snippet.py": "codes/solutions/solution_snippet.py"
+  }
+}

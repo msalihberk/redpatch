@@ -1,166 +1,177 @@
-import os
 import json
+from pathlib import Path
+
 
 class ModuleManager:
-    """Discover and manage cyber-security modules stored under a '/app/modules/' folder.
-
-    Each subfolder of `modules/` must contain a `config.json` with the keys:
-    {"name": "SQL Injection", "description": "...", "sub_modules": [...]}
-
-    """
-
     def __init__(self, modules_directory="modules"):
         self.modules_directory = self.get_modules_path(modules_directory)
         self._module_index = {}
         self._submodule_index = {}
         self.discover_modules()
 
-    def read_submodule(self, module_name, submodule_name):
-        """Read the submodule's code files and return a dict of {filename: content}."""
-        if not module_name or not submodule_name:
-            return {}
-        module_entry = self.get_module_entry(module_name)
-        if not module_entry:
-            return {}
-        submodule_entry = self.get_submodule_entry(submodule_name)
-        if not submodule_entry:
-            return {}
-
-        codes = {}
-        for filename in submodule_entry.get("codes", {}).keys():
-            file_path = os.path.join(module_entry["module_folder"], "submodules", submodule_name, filename)
-            if os.path.isfile(file_path):
-                with open(file_path, "r", encoding="utf-8") as fh:
-                    codes[filename] = fh.read()
-        return codes
-
     def get_modules_path(self, modules_directory):
-        PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir))
-        return os.path.join(PROJECT_ROOT, modules_directory)
+        return Path(__file__).resolve().parents[2] / modules_directory
+
+    @staticmethod
+    def _load_json(path):
+        try:
+            with Path(path).open(encoding="utf-8") as file:
+                data = json.load(file)
+        except (OSError, json.JSONDecodeError):
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    @staticmethod
+    def _read_file(path):
+        try:
+            return Path(path).read_text(encoding="utf-8")
+        except OSError:
+            return ""
+
+    @staticmethod
+    def _relative_file_path(base_path, filename):
+        matches = list(Path(base_path).rglob(filename))
+        if len(matches) != 1 or not matches[0].is_file():
+            return None
+        return matches[0].relative_to(base_path)
 
     def is_module_exist(self, module_name):
-        if not module_name:
-            return False
-        if module_name in self._module_index:
-            return True
-        return False
+        return bool(module_name) and module_name.strip().upper() in self._module_index
 
-    def is_submodule_exist(self, submodule_name):
+    def is_submodule_exist(self, submodule_name, module_name=None):
         if not submodule_name:
             return False
-        if submodule_name in self._submodule_index:
-            return True
-        return False
+        entry = self._submodule_index.get(submodule_name.strip().upper())
+        return bool(entry) and (not module_name or entry["main"] == module_name.strip().upper())
 
     def discover_modules(self):
-        """Scan the modules directory and populate the internal index.
-
-        Missing or malformed modules are skipped silently to keep output tight.
-        """
         self._module_index.clear()
-        if not os.path.isdir(self.modules_directory):
+        self._submodule_index.clear()
+        modules_path = Path(self.modules_directory)
+        if not modules_path.is_dir():
             return
 
-        for entry in os.listdir(self.modules_directory):
-            entry_path = os.path.join(self.modules_directory, entry)
-            if not os.path.isdir(entry_path):
+        for module_folder in modules_path.iterdir():
+            if not module_folder.is_dir():
                 continue
 
-            config_path = os.path.join(entry_path, "config.json")
-            if not os.path.isfile(config_path):
+            config = self._load_json(module_folder / "config.json")
+            name = str(config.get("name", "")).strip().upper()
+            submodules = config.get("sub_modules", [])
+            if not name or not isinstance(submodules, list) or name in self._module_index:
                 continue
 
-            try:
-                with open(config_path, "r", encoding="utf-8") as fh:
-                    config = json.load(fh)
-                name = str(config.get("name", "")).strip().upper()
-                description = str(config.get("description", "")).strip()
-                sub_modules = config.get("sub_modules", [])
-                for sub_module in sub_modules:
-                    sub_module_name = str(sub_module.get("name", "")).strip().upper()
-                    sub_module_description = str(sub_module.get("description", "")).strip()
+            valid_submodules = []
+            for submodule in submodules:
+                if not isinstance(submodule, dict):
+                    continue
+                submodule_name = str(submodule.get("name", "")).strip().upper()
+                runtime = str(submodule.get("runtime", "")).strip()
+                entrypoint = str(submodule.get("entrypoint", "")).strip()
+                codes = submodule.get("codes", {})
+                try:
+                    internal_port = int(submodule.get("internal_port", 0))
+                except (TypeError, ValueError):
+                    internal_port = 0
 
-                    if not sub_module_name:
-                        continue
+                if (
+                    not submodule_name
+                    or submodule_name in self._submodule_index
+                    or not runtime
+                    or not entrypoint
+                    or not internal_port
+                    or not isinstance(codes, dict)
+                ):
+                    continue
 
-                    runtime = str(sub_module.get("runtime", "")).strip()
-                    entrypoint = str(sub_module.get("entrypoint", "")).strip()
-                    internal_port = int(sub_module.get("internal_port", 0))
-
-                    codes = sub_module.get("codes", {})
-                    if not codes or not runtime or not entrypoint or not internal_port:
-                        continue
-
-                    if sub_module_name in self._submodule_index:
-                        raise Exception(f"Submodule {sub_module_name} already exists")
-
-                    self._submodule_index[sub_module_name] = {
-                        "main" : name,
-                        "submodule_description": sub_module_description,
-                        "submodule_name": sub_module_name,
-                        "codes": codes,
-                        "runtime": runtime,
-                        "entrypoint": entrypoint,
-                        "internal_port": internal_port,
-                    }
-
-                if name in self._module_index:
-                    raise Exception(f"Module {name} already exists")
-
-                self._module_index[name] = {
-                    "description": description,
-                    "module_folder": entry_path,
-                    "submodules": sub_modules,
+                submodule_folder = module_folder / "submodules" / submodule_name
+                self._submodule_index[submodule_name] = {
+                    "main": name,
+                    "submodule_description": str(submodule.get("description", "")).strip(),
+                    "submodule_name": submodule_name,
+                    "submodule_folder": submodule_folder,
+                    "codes": codes,
+                    "runtime": runtime,
+                    "entrypoint": entrypoint,
+                    "internal_port": internal_port,
                 }
-            except Exception as e:
-                print(f"Error in module manager: {e}")
-                continue
+                valid_submodules.append(submodule)
+
+            self._module_index[name] = {
+                "description": str(config.get("description", "")).strip(),
+                "module_folder": module_folder,
+                "submodules": valid_submodules,
+            }
 
     def list_modules(self):
-        """Return a list of (name, description) tuples sorted by command."""
-        return sorted(((k, v.get("description", "")) for k, v in self._module_index.items()), key=lambda x: x[0])
+        return sorted((name, entry["description"]) for name, entry in self._module_index.items())
 
     def list_submodules(self):
-        """Return a list of (name, description) tuples sorted by command."""
-        return sorted(((k, v.get("description", "")) for k, v in self._submodule_index.items()), key=lambda x: x[0])
+        return sorted(
+            (name, entry["submodule_description"])
+            for name, entry in self._submodule_index.items()
+        )
 
     def get_module_entry(self, module_name):
-        """Return a module entry dict."""
-        if not module_name:
+        if not self.is_module_exist(module_name):
             return None
-        module_name = module_name.strip().upper()
-        entry = self._module_index.get(module_name)
-        if not entry:
-            return None
-        return {
-            "description": entry.get("description", ""),
-            "module_folder": entry.get("module_folder"),
-            "submodules": entry.get("submodules", []),
-        }
+        entry = self._module_index[module_name.strip().upper()]
+        return {**entry}
 
     def get_submodule_entry(self, submodule_name):
-        """Return a submodule entry dict."""
-        if not submodule_name:
+        if not self.is_submodule_exist(submodule_name):
             return None
-        submodule_name = submodule_name.strip().upper()
-        entry = self._submodule_index.get(submodule_name)
-        if not entry:
-            print(f"\n\n\n {submodule_name} \n\n\n")
-            return None
-        return {
-            "main" : entry.get("main", ""),
-            "submodule_description": entry.get("submodule_description", ""),
-            "submodule_name": entry.get("submodule_name", ""),
-            "codes": entry.get("codes", {}),
-            "runtime": entry.get("runtime", ""),
-            "entrypoint": entry.get("entrypoint", ""),
-            "internal_port": entry.get("internal_port", 0),
-        }
+        return {**self._submodule_index[submodule_name.strip().upper()]}
 
     def get_module_entries(self):
-        """Return all discovered module entries as a list of dicts."""
-        return [self.get_module_entry(command) for command, _ in self.list_modules()]
+        return [self.get_module_entry(name) for name, _ in self.list_modules()]
 
     def get_submodule_entries(self):
-        """Return all discovered submodule entries as a list of dicts."""
-        return [self.get_submodule_entry(command) for command, _ in self.list_submodules()]
+        return [self.get_submodule_entry(name) for name, _ in self.list_submodules()]
+
+    def get_workspace_files(self, module_name, submodule_name, workspace_path=None):
+        """Return editable files, hints, and configured solutions for one submodule."""
+        if not self.is_submodule_exist(submodule_name, module_name):
+            return None
+
+        entry = self.get_submodule_entry(submodule_name)
+        source_path = Path(entry["submodule_folder"])
+        active_path = Path(workspace_path) if workspace_path else source_path
+        config = self._load_json(source_path / "config.json")
+        configured_hints = config.get("hints", {})
+        configured_solutions = config.get("solutions", {})
+        if not isinstance(configured_hints, dict):
+            configured_hints = {}
+        if not isinstance(configured_solutions, dict):
+            configured_solutions = {}
+
+        vulnerables, hints, solutions = {}, {}, {}
+        for filename, kind in entry["codes"].items():
+            entry_type = kind.get("type", "") if isinstance(kind, dict) else kind
+            if str(entry_type).lower() not in {"vulnerable", "vulnerables", "vuln"}:
+                continue
+
+            relative_path = self._relative_file_path(source_path, filename)
+            if relative_path is None:
+                continue
+            active_file = active_path / relative_path
+            vulnerables[filename] = self._read_file(
+                active_file if active_file.is_file() else source_path / relative_path
+            )
+
+            file_hints = configured_hints.get(filename, [])
+            if isinstance(file_hints, list):
+                hints[filename] = [hint for hint in file_hints if isinstance(hint, str)]
+
+            solution_path = configured_solutions.get(filename)
+            if not isinstance(solution_path, str) or not solution_path:
+                continue
+            candidate = (source_path / solution_path).resolve()
+            try:
+                candidate.relative_to(source_path.resolve())
+            except ValueError:
+                continue
+            if candidate.is_file():
+                solutions[filename] = self._read_file(candidate)
+
+        return {"vulnerables": vulnerables, "solutions": solutions, "hints": hints}

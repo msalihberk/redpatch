@@ -1,15 +1,13 @@
 import sqlite3
+from pathlib import Path
+
+
+DB_PATH = Path(__file__).resolve().parents[2] / "vulnerable.db"
 
 def authenticate_user(username, password):
-    """
-    Secure Authentication Function.
-    SQL injection has been prevented by using prepared statements.
-    """
-    conn = sqlite3.connect("../../vulnerable.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    # SECURE ARCHITECTURE:
-    # Data is kept separate from the query structure and is sanitised by the database driver.
     query = "SELECT id, username, role FROM users WHERE username = ? AND password = ?"
 
     cursor.execute(query, (username, password))
