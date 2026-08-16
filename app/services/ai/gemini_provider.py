@@ -5,7 +5,7 @@ from google import genai
 from google.genai import types
 
 from app.core.config import settings
-from app.services.ai.base import BaseLLMProvider, VulnerabilityAnalysis, execute_exploit_request
+from app.services.ai.base import BaseLLMProvider, VulnerabilityAnalysis
 
 
 class GeminiProvider(BaseLLMProvider, ABC):
@@ -51,13 +51,27 @@ class GeminiProvider(BaseLLMProvider, ABC):
             """
         )
 
+        schema = VulnerabilityAnalysis.model_json_schema()
+
+        def clean_schema(obj):
+            if isinstance(obj, dict):
+                obj.pop("additionalProperties", None)
+                obj.pop("title", None)
+                for key, value in list(obj.items()):
+                    clean_schema(value)
+            elif isinstance(obj, list):
+                for item in obj:
+                    clean_schema(item)
+
+        clean_schema(schema)
+
         response = await self.client.aio.models.generate_content(
             model=settings.MODEL,
             contents=f"Analyze the following code for the specified vulnerability:\n\n{code}",
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
                 response_mime_type="application/json",
-                response_schema=VulnerabilityAnalysis,
+                response_schema=schema,
                 temperature=0.2
             )
         )
@@ -79,8 +93,5 @@ class GeminiProvider(BaseLLMProvider, ABC):
                 analysis = VulnerabilityAnalysis.model_validate_json(response_text)
             except (ValueError, json.JSONDecodeError) as exc:
                 raise ValueError("Gemini returned an invalid analysis response.") from exc
-
-        if analysis.vulnerability_found and analysis.exploit_request:
-            await execute_exploit_request(analysis.exploit_request, lab_link)
 
         return analysis

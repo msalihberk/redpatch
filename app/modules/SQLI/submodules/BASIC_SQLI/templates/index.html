@@ -67,20 +67,33 @@
         </form>
 
         <!-- RESPONSE DISPLAY AREA -->
-        <div id="resultContainer" class="hidden space-y-3 pt-2 border-t border-slate-800/80">
+        <div id="resultContainer" class="{% if not result %}hidden {% endif %}space-y-3 pt-2 border-t border-slate-800/80">
             <div class="flex items-center justify-between text-xs font-mono">
                 <span class="text-slate-400">Response Inspector</span>
-                <span id="statusCode" class="px-2 py-0.5 rounded text-[10px] font-bold"></span>
+                <span id="statusCode" class="px-2 py-0.5 rounded text-[10px] font-bold {% if result and result.status == 'success' %}bg-emerald-950 text-emerald-400 border border-emerald-800/50{% elif result %}bg-rose-950 text-rose-400 border border-rose-800/50{% endif %}">{% if result %}HTTP {{ result_status_code }}{% endif %}</span>
             </div>
 
-            <div id="queryBox" class="hidden bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-1">
+            <div id="queryBox" class="{% if not result or not result.executed_query %}hidden {% endif %}bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-1">
                 <div class="text-[10px] font-mono text-amber-400/90 uppercase tracking-wider flex items-center gap-1.5">
                     <i class="fa-solid fa-database text-[10px]"></i> Executed SQL Query:
                 </div>
-                <pre id="executedQuery" class="text-xs font-mono text-amber-200/90 whitespace-pre-wrap break-all"></pre>
+                <pre id="executedQuery" class="text-xs font-mono text-amber-200/90 whitespace-pre-wrap break-all">{% if result and result.executed_query %}{{ result.executed_query }}{% endif %}</pre>
             </div>
 
-            <pre id="resultOutput" class="bg-slate-950 p-3 rounded-lg border text-xs font-mono overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-48"></pre>
+            <div id="resultOutput" class="bg-slate-950 p-3 rounded-lg border text-xs font-mono overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-48 {% if result and result.status == 'success' %}border-emerald-900/50 text-emerald-400{% elif result %}border-rose-900/50 text-rose-400{% endif %}">
+                {% if result %}
+                    <div class="flex items-center gap-2 font-sans font-semibold">
+                        <i class="fa-solid {% if result.status == 'success' %}fa-circle-check{% else %}fa-circle-xmark{% endif %}"></i>
+                        <span>{{ result.message or result.error }}</span>
+                    </div>
+                    {% if result.user %}
+                    <dl class="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+                        <dt class="text-slate-500">User</dt><dd>{{ result.user.username }}</dd>
+                        <dt class="text-slate-500">Role</dt><dd>{{ result.user.role }}</dd>
+                    </dl>
+                    {% endif %}
+                {% endif %}
+            </div>
         </div>
 
     </div>
@@ -103,7 +116,12 @@
         const cleanEndpoint = endpoint.replace(/^\/+/, '');
 
         // Ensure the request stays within current submodule scope: /proxy/SQLI/BASIC_SQLI/login-vulnerable
-        const currentPath = window.location.pathname.replace(/\/+$/, '');
+        // A payload response may render this same page from /login-vulnerable
+        // or /login-fixed. Strip that endpoint so manual retries still target
+        // the lab's proxy root instead of nesting the route repeatedly.
+        const currentPath = window.location.pathname
+            .replace(/\/(login-vulnerable|login-fixed)\/?$/, '')
+            .replace(/\/+$/, '');
         const targetUrl = `${currentPath}/${cleanEndpoint}`;
 
         try {
@@ -132,7 +150,13 @@
                 queryBox.classList.add('hidden');
             }
 
-            resOutput.innerText = JSON.stringify(data, null, 2);
+            const icon = data.status === 'success' ? 'fa-circle-check' : 'fa-circle-xmark';
+            const userDetails = data.user ? `
+                <dl class="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+                    <dt class="text-slate-500">User</dt><dd>${escapeHtml(data.user.username)}</dd>
+                    <dt class="text-slate-500">Role</dt><dd>${escapeHtml(data.user.role)}</dd>
+                </dl>` : '';
+            resOutput.innerHTML = `<div class="flex items-center gap-2 font-sans font-semibold"><i class="fa-solid ${icon}"></i><span>${escapeHtml(data.message || data.error || 'Request completed.')}</span></div>${userDetails}`;
         } catch (err) {
             resContainer.classList.remove('hidden');
             queryBox.classList.add('hidden');
@@ -142,6 +166,12 @@
             resOutput.innerText = "Network Error: Failed to execute request.";
         }
     });
+
+    function escapeHtml(value) {
+        const node = document.createElement('span');
+        node.textContent = value ?? '';
+        return node.innerHTML;
+    }
     </script>
 </body>
 </html>

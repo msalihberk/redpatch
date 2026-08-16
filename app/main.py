@@ -1,6 +1,8 @@
 import os.path
 import uuid
 import logging
+import base64
+import json
 
 import httpx
 from fastapi import FastAPI, Request, Response, HTTPException
@@ -179,8 +181,8 @@ async def workspace_reset(request: Request, module: str = None, submodule: str =
         }
     )
 
-@app.api_route("/proxy/{module}/{submodule}", methods=["GET", "POST", "PUT", "DELETE"])
-@app.api_route("/proxy/{module}/{submodule}/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
+@app.api_route("/proxy/{module}/{submodule}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@app.api_route("/proxy/{module}/{submodule}/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 async def proxy_submodule(module: str, submodule: str, request: Request, path: str = ""):
     module_mngr = ModuleManager()
     if not module or not submodule:
@@ -205,18 +207,65 @@ async def proxy_submodule(module: str, submodule: str, request: Request, path: s
             detail=f"'{submodule}' No active port was found. The container may not have started. "
         )
 
+    # Native HTML forms support GET and POST only.  The workspace uses this
+    # explicitly scoped override for PUT/PATCH/DELETE forms targeted at the
+    # iframe; it is never forwarded to the lab application.
+    requested_method = request.query_params.get("_redpatch_method", request.method).upper()
+    if requested_method not in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
+        raise HTTPException(status_code=405, detail="Unsupported proxy request method")
+
     target_url = f"http://127.0.0.1:{container_port}/{path}"
-    if request.url.query:
-        target_url += f"?{request.url.query}"
+    control_params = {"_redpatch_method", "_redpatch_headers", "_redpatch_json_body"}
+    query_params = [
+        (key, value)
+        for key, value in request.query_params.multi_items()
+        if key not in control_params
+    ]
+
+    def decode_proxy_metadata(parameter_name: str):
+        encoded_value = request.query_params.get(parameter_name)
+        if not encoded_value:
+            return None
+        try:
+            padding = "=" * (-len(encoded_value) % 4)
+            return json.loads(base64.b64decode(encoded_value + padding).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid {parameter_name} metadata") from exc
 
     async with httpx.AsyncClient() as client:
         body = await request.body()
+        # This retains the browser Cookie header (including session_id), while
+        # allowing httpx to calculate the upstream Host and Content-Length.
         headers = {k: v for k, v in request.headers.items() if k.lower() not in ("host", "content-length")}
 
+        exploit_headers = decode_proxy_metadata("_redpatch_headers")
+        if exploit_headers is not None:
+            if not isinstance(exploit_headers, dict):
+                raise HTTPException(status_code=400, detail="Invalid exploit request headers")
+            blocked_headers = {"host", "content-length", "cookie", "connection", "transfer-encoding"}
+            for name, value in exploit_headers.items():
+                normalized_name = str(name).lower()
+                normalized_value = str(value)
+                if (
+                    normalized_name in blocked_headers
+                    or "\r" in str(name)
+                    or "\n" in str(name)
+                    or "\r" in normalized_value
+                    or "\n" in normalized_value
+                ):
+                    continue
+                headers[str(name)] = normalized_value
+
+        json_body = decode_proxy_metadata("_redpatch_json_body")
+        if json_body is not None:
+            body = json.dumps(json_body).encode("utf-8")
+            headers["content-type"] = "application/json"
+
         resp = await client.request(
-            method=request.method,
+            method=requested_method,
             url=target_url,
             headers=headers,
+            params=query_params,
             content=body,
             timeout=10.0
         )

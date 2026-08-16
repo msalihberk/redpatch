@@ -137,8 +137,8 @@
                     <button onclick="reloadIframe()" class="hover:text-white transition-colors flex items-center gap-1" title="Reload Canvas">
                         <i class="fa-solid fa-arrows-rotate"></i> Reload
                     </button>
-                    <a id="external-link" href="/proxy/{{ module }}/{{ submodule }}" target="_blank" class="hover:text-white transition-colors" title="Open in New Tab">
-                        <i class="fa-solid fa-up-right-from-square"></i>
+                    <a id="external-link" href="/proxy/{{ module }}/{{ submodule }}" target="target-canvas" class="hover:text-white transition-colors" title="Open in Canvas">
+                        <i class="fa-solid fa-up-right-from-square"></i> Canvas
                     </a>
                 </div>
             </div>
@@ -166,7 +166,7 @@
                     </div>
                 </div>
 
-                <iframe id="target-canvas" src="about:blank" class="w-full h-full border-none bg-white"></iframe>
+                <iframe id="target-canvas" name="target-canvas" src="about:blank" class="w-full h-full border-none bg-white"></iframe>
             </div>
         </section>
 
@@ -544,7 +544,6 @@
                 const data = await response.json();
 
                 if (data.status === 'success' && data.vulnerability_analysis) {
-                    executeExploitInIframe(data.vulnerability_analysis.exploit_request);
                     displayAIAnalysisResult(data.vulnerability_analysis);
                 } else {
                     alert("AI analysis could not be performed.");
@@ -598,17 +597,35 @@
 
                     <div class="bg-slate-900/80 p-3 rounded border border-slate-700 text-sm">
                         <h4 class="text-xs font-semibold uppercase text-slate-400 mb-1">Explanation & Tip</h4>
-                        <p class="text-slate-300 whitespace-pre-wrap">${analysis.explanation || 'No explanation available.'}</p>
+                        <p class="text-slate-300 whitespace-pre-wrap">${escapeHtml(analysis.explanation || 'No explanation available.')}</p>
                     </div>
 
-                    ${analysis.exploit_payload ? `
+                    ${analysis.exploit_request ? `
                         <div class="bg-slate-900/80 p-3 rounded border border-slate-700 text-sm font-mono">
                             <h4 class="text-xs font-semibold uppercase text-amber-400 mb-1">Example Request / Exploit Payload</h4>
-                            <pre class="text-amber-200 text-xs overflow-x-auto p-2 bg-slate-950 rounded border border-slate-800">${escapeHtml(analysis.exploit_payload)}</pre>
+                            <pre class="text-amber-200 text-xs overflow-x-auto p-2 bg-slate-950 rounded border border-slate-800">${escapeHtml(JSON.stringify(analysis.exploit_request, null, 2))}</pre>
+                            ${analysis.vulnerability_found ? `
+                                <button id="fire-exploit-btn" class="mt-3 bg-red-600 hover:bg-red-500 text-white text-xs px-3 py-2 rounded font-medium transition-colors">
+                                    <i class="fa-solid fa-bolt mr-1"></i> Fire Payload in Canvas
+                                </button>
+                            ` : ''}
                         </div>
                     ` : ''}
                 </div>
             `;
+
+            const fireButton = document.getElementById('fire-exploit-btn');
+            if (fireButton) {
+                fireButton.addEventListener('click', () => {
+                    try {
+                        executeExploitInIframe(analysis.exploit_request);
+                        closeAIModal();
+                    } catch (error) {
+                        console.error('Iframe exploit execution error:', error);
+                        alert(`Payload could not be sent to the canvas: ${error.message}`);
+                    }
+                });
+            }
 
             modal.classList.remove('hidden');
         }
@@ -618,46 +635,77 @@
         }
 
         function executeExploitInIframe(exploitRequest) {
-            const iframe = document.getElementById('target-canvas');
-            const method = (exploitRequest.method || 'GET').toUpperCase();
+            if (!exploitRequest || !exploitRequest.path) {
+                throw new Error('The AI response does not include an exploit request.');
+            }
 
-            let path = exploitRequest.path.startsWith('/') ? exploitRequest.path.substring(1) : exploitRequest.path;
-            let proxyBaseUrl = `/proxy/${currentModule}/${currentSubmodule}/${path}`;
+            const iframe = document.getElementById('target-canvas');
+            // A form target resolves a browsing context by iframe *name*, not
+            // by its DOM id. Keep this assignment as a guard for dynamically
+            // rendered workspace views as well.
+            iframe.name = 'target-canvas';
+            const method = (exploitRequest.method || 'GET').toUpperCase();
+            if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+                throw new Error(`Unsupported HTTP method: ${method}`);
+            }
+
+            const rawPath = String(exploitRequest.path);
+            if (rawPath.includes('://')) {
+                throw new Error('Exploit request paths must be relative to the current lab.');
+            }
+
+            const [pathOnly, pathQuery = ''] = rawPath.split('?', 2);
+            const relativePath = pathOnly.replace(/^\/+/, '');
+            const targetUrl = new URL(
+                `${targetProxyUrl}/${relativePath}`.replace(/\/$/, relativePath ? '' : '/'),
+                window.location.origin
+            );
+            const queryParams = new URLSearchParams(pathQuery);
+            Object.entries(exploitRequest.params || {}).forEach(([key, value]) => {
+                queryParams.set(key, typeof value === 'object' ? JSON.stringify(value) : String(value));
+            });
+            targetUrl.search = queryParams.toString();
 
             if (method === 'GET') {
-                const urlParams = new URLSearchParams();
-                if (exploitRequest.params) {
-                    Object.entries(exploitRequest.params).forEach(([key, val]) => {
-                        urlParams.append(key, typeof val === 'object' ? JSON.stringify(val) : val);
-                    });
-                }
-
-                const queryString = urlParams.toString();
-                const fullUrl = queryString ? `${proxyBaseUrl}?${queryString}` : proxyBaseUrl;
-
-                iframe.src = fullUrl;
+                iframe.src = targetUrl.toString();
+                return;
             }
-            else {
-                const form = document.createElement('form');
-                form.method = method === 'GET' ? 'GET' : 'POST';
-                form.action = proxyBaseUrl;
-                form.target = 'target-canvas';
-                form.style.display = 'none';
 
-                const payloadData = exploitRequest.data || exploitRequest.json_body || exploitRequest.params || {};
-
-                Object.entries(payloadData).forEach(([key, val]) => {
-                    const input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = key;
-                    input.value = typeof val === 'object' ? JSON.stringify(val) : val;
-                    form.appendChild(input);
-                });
-
-                document.body.appendChild(form);
-                form.submit();
-                document.body.removeChild(form);
+            // Browser forms only implement GET/POST. The proxy converts this
+            // lab-scoped marker to the requested method before forwarding it.
+            if (method !== 'POST') {
+                targetUrl.searchParams.set('_redpatch_method', method);
             }
+            if (exploitRequest.headers && Object.keys(exploitRequest.headers).length) {
+                targetUrl.searchParams.set('_redpatch_headers', encodeProxyMetadata(exploitRequest.headers));
+            }
+            const usesJsonBody = !exploitRequest.data && exploitRequest.json_body;
+            if (usesJsonBody) {
+                targetUrl.searchParams.set('_redpatch_json_body', encodeProxyMetadata(exploitRequest.json_body));
+            }
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = targetUrl.toString();
+            form.target = iframe.name;
+            form.enctype = 'application/x-www-form-urlencoded';
+            form.style.display = 'none';
+
+            const payloadData = exploitRequest.data || exploitRequest.json_body || {};
+            Object.entries(payloadData).forEach(([key, value]) => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = typeof value === 'object' ? JSON.stringify(value) : String(value);
+                form.appendChild(input);
+            });
+
+            document.body.appendChild(form);
+            form.submit();
+            form.remove();
+        }
+
+        function encodeProxyMetadata(value) {
+            return btoa(unescape(encodeURIComponent(JSON.stringify(value))));
         }
 
         function escapeHtml(text) {

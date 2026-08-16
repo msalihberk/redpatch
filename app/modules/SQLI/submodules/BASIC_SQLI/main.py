@@ -46,11 +46,27 @@ init_db()
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse(request, "index.html")
+    return templates.TemplateResponse(request, "index.html", {"result": None})
+
+
+def responds_with_html(request: Request) -> bool:
+    """Return the lab UI after a browser form navigation into the iframe."""
+    return "text/html" in request.headers.get("accept", "").lower()
+
+
+def login_response(request: Request, result: dict, status_code: int):
+    if responds_with_html(request):
+        return templates.TemplateResponse(
+            request,
+            "index.html",
+            {"result": result, "result_status_code": status_code},
+            status_code=status_code,
+        )
+    return JSONResponse(status_code=status_code, content=result)
 
 
 @app.post("/login-vulnerable")
-async def login_vulnerable(payload: LoginPayload):
+async def login_vulnerable(request: Request, payload: LoginPayload):
     username = payload.username
     password = payload.password
 
@@ -58,60 +74,61 @@ async def login_vulnerable(payload: LoginPayload):
 
     try:
         if user:
-            return JSONResponse(
-                status_code=status.HTTP_200_OK,
-                content={
+            return login_response(
+                request,
+                {
                     "status": "success",
                     "message": "Authentication successful!",
                     "user": {"id": user[0], "username": user[1], "role": user[2]},
                     "executed_query": query,
                 },
+                status.HTTP_200_OK,
             )
-        else:
-            return JSONResponse(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                content={
-                    "status": "fail",
-                    "message": "Invalid username or password.",
-                    "executed_query": query,
-                },
-            )
+        return login_response(
+            request,
+            {
+                "status": "fail",
+                "message": "Invalid username or password.",
+                "executed_query": query,
+            },
+            status.HTTP_401_UNAUTHORIZED,
+        )
     except sqlite3.Error as e:
-        conn.close()
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={
+        return login_response(
+            request,
+            {
                 "status": "error",
                 "error": str(e),
                 "executed_query": query,
             },
+            status.HTTP_400_BAD_REQUEST,
         )
+    finally:
+        conn.close()
 
 
 @app.post("/login-fixed")
-async def login_fixed(payload: LoginPayload):
+async def login_fixed(request: Request, payload: LoginPayload):
     username = payload.username
     password = payload.password
 
     user, query, conn = secure_authenticate_user(username, password)
 
     if user:
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={
+        return login_response(
+            request,
+            {
                 "status": "success",
                 "message": "Authentication successful!",
                 "user": {"id": user[0], "username": user[1], "role": user[2]},
             },
+            status.HTTP_200_OK,
         )
-    else:
-        return JSONResponse(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            content={
-                "status": "fail",
-                "message": "Invalid username or password.",
-            },
-        )
+    return login_response(
+        request,
+        {"status": "fail", "message": "Invalid username or password."},
+        status.HTTP_401_UNAUTHORIZED,
+    )
 
 
 @app.get("/health")

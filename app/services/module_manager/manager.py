@@ -45,7 +45,7 @@ class ModuleManager:
         with open(main_py) as file:
             for line in file.readlines():
                 stripped = line.strip()
-                if stripped.startswith("@app."):
+                if stripped.startswith("@app.") or stripped.startswith("async def "):
                     routes.append(stripped)
 
         return "\n".join(routes)
