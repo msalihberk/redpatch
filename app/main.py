@@ -69,6 +69,11 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 async def index(request: Request):
     return templates.TemplateResponse(request, "index.html")
 
+
+@app.get("/documentation/contributing", response_class=HTMLResponse)
+async def contributing_guide(request: Request):
+    return templates.TemplateResponse(request, "contributing.html")
+
 @app.get("/modules", response_class=HTMLResponse)
 async def get_modules(request: Request, action: str = None, module: str = None, mode: str = None):
     module_mngr = ModuleManager()

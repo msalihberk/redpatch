@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RedPatch | Contributing Guide</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
+                    colors: { brand: { dark: '#0B0F19', card: '#111827', border: '#1F2937', muted: '#9CA3AF' } }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-brand-dark text-slate-100 font-sans min-h-screen antialiased selection:bg-red-900 selection:text-white">
+    <header class="border-b border-brand-border/60 bg-brand-dark/80 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+            <a href="{{ url_for('index') }}" class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded bg-red-600/10 border border-red-500/30 flex items-center justify-center text-red-500">
+                    <i class="fa-solid fa-shield-halved text-sm"></i>
+                </div>
+                <span class="font-mono font-bold text-lg tracking-wider text-slate-100">RED<span class="text-red-500">PATCH</span></span>
+            </a>
+            <a href="{{ url_for('index') }}" class="text-xs font-mono text-brand-muted hover:text-slate-200 transition-colors flex items-center gap-2">
+                <i class="fa-solid fa-arrow-left"></i>
+                <span>BACK TO HOME</span>
+            </a>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-6 py-10 md:py-14 grid grid-cols-1 lg:grid-cols-[15rem_minmax(0,1fr)] gap-10">
+        <aside class="lg:sticky lg:top-24 lg:self-start rounded-xl border border-brand-border bg-brand-card/60 p-5">
+            <p class="text-[11px] font-mono font-semibold tracking-widest text-red-400 uppercase mb-4">Guide index</p>
+            <nav class="space-y-1 text-sm">
+                <a href="#overview" class="block rounded px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">Overview</a>
+                <a href="#local-setup" class="block rounded px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">Local setup</a>
+                <a href="#module-system" class="block rounded px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">Module system</a>
+                <a href="#new-lab" class="block rounded px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">Create a lab</a>
+                <a href="#workspace" class="block rounded px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">Workspace contract</a>
+                <a href="#quality" class="block rounded px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">Quality & safety</a>
+            </nav>
+        </aside>
+
+        <article class="min-w-0">
+            <section id="overview" class="border-b border-brand-border pb-10 mb-10">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded border border-red-500/20 bg-red-500/5 text-red-400 text-xs font-mono tracking-wider uppercase mb-5">
+                    <i class="fa-solid fa-book-open"></i>
+                    <span>Open-source contribution guide</span>
+                </div>
+                <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-white">Build safe, useful RedPatch labs.</h1>
+                <p class="mt-4 text-brand-muted leading-relaxed max-w-3xl">This guide covers the current module contract, local workflow, and review expectations for contributors. Keep every lab educational, self-contained, reproducible, and limited to systems you own or are authorized to test.</p>
+                <div class="mt-6 grid sm:grid-cols-3 gap-3 text-xs font-mono">
+                    <div class="rounded-lg border border-brand-border bg-brand-card p-4"><span class="block text-emerald-400 mb-1">01 / ISOLATED</span>Use fictional data and local containers.</div>
+                    <div class="rounded-lg border border-brand-border bg-brand-card p-4"><span class="block text-blue-400 mb-1">02 / REPRODUCIBLE</span>Make vulnerable and fixed flows testable.</div>
+                    <div class="rounded-lg border border-brand-border bg-brand-card p-4"><span class="block text-red-400 mb-1">03 / FOCUSED</span>Keep one security lesson per lab.</div>
+                </div>
+            </section>
+
+            <section id="local-setup" class="mb-12 scroll-mt-24">
+                <h2 class="text-xl font-bold text-white mb-3">Run the project locally</h2>
+                <p class="text-sm text-brand-muted leading-relaxed mb-4">The host application uses FastAPI; individual labs run in Docker. Install the root dependencies and start the development server. Docker must be running before launching a lab from the workspace.</p>
+                <pre class="overflow-x-auto rounded-xl border border-brand-border bg-slate-950 p-5 text-xs leading-6 text-slate-300"><code><span class="text-slate-500"># Create and activate a virtual environment for your shell</span>
+python -m venv .venv
+pip install -r requirements.txt
+uvicorn app.main:app --reload</code></pre>
+                <p class="mt-4 text-sm text-brand-muted">AI analysis also requires the environment variables used by <code class="text-red-300 font-mono text-xs">app/core/config.py</code>, including <code class="text-red-300 font-mono text-xs">API_KEY</code>. Never commit a <code class="text-red-300 font-mono text-xs">.env</code> file or credentials.</p>
+            </section>
+
+            <section id="module-system" class="mb-12 scroll-mt-24">
+                <h2 class="text-xl font-bold text-white mb-3">Module system</h2>
+                <p class="text-sm text-brand-muted leading-relaxed mb-5">RedPatch scans <code class="text-red-300 font-mono text-xs">app/modules</code>. A category is registered by its own <code class="text-red-300 font-mono text-xs">config.json</code>; its labs live in the category's <code class="text-red-300 font-mono text-xs">submodules</code> directory.</p>
+                <pre class="overflow-x-auto rounded-xl border border-brand-border bg-slate-950 p-5 text-xs leading-6 text-slate-300"><code>app/modules/
+└── SQLI/
+    ├── config.json
+    └── submodules/
+        └── BASIC_SQLI/
+            ├── config.json
+            ├── main.py
+            ├── requirements.txt
+            └── codes/
+                ├── vulnerables/
+                └── solutions/</code></pre>
+                <div class="mt-5 overflow-x-auto rounded-xl border border-brand-border">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-900 text-xs font-mono uppercase text-slate-400"><tr><th class="px-4 py-3">Field</th><th class="px-4 py-3">Rule</th></tr></thead>
+                        <tbody class="divide-y divide-brand-border text-brand-muted">
+                            <tr><td class="px-4 py-3 font-mono text-red-300">name</td><td class="px-4 py-3">Non-empty and unique. Names are normalized to uppercase.</td></tr>
+                            <tr><td class="px-4 py-3 font-mono text-red-300">runtime</td><td class="px-4 py-3">Docker image used to run the lab, such as <code class="font-mono text-xs">python:3.11-slim</code>.</td></tr>
+                            <tr><td class="px-4 py-3 font-mono text-red-300">entrypoint</td><td class="px-4 py-3">Python file whose stem is loaded by Uvicorn. <code class="font-mono text-xs">main.py</code> must expose <code class="font-mono text-xs">app</code>.</td></tr>
+                            <tr><td class="px-4 py-3 font-mono text-red-300">internal_port</td><td class="px-4 py-3">Positive TCP port used inside the lab container.</td></tr>
+                            <tr><td class="px-4 py-3 font-mono text-red-300">codes</td><td class="px-4 py-3">Maps editable file names to their role.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="new-lab" class="mb-12 scroll-mt-24">
+                <h2 class="text-xl font-bold text-white mb-3">Create a new lab</h2>
+                <ol class="space-y-3 text-sm text-brand-muted leading-relaxed list-decimal list-inside">
+                    <li>Create a category under <code class="text-red-300 font-mono text-xs">app/modules</code>, or select an existing category.</li>
+                    <li>Create <code class="text-red-300 font-mono text-xs">submodules/&lt;SUBMODULE&gt;</code> and add its application, dependencies, templates, and code samples.</li>
+                    <li>Register the lab in the parent category configuration.</li>
+                    <li>Confirm that it appears in the Modules page, starts in Docker, and supports both vulnerable and fixed flows.</li>
+                </ol>
+                <pre class="mt-5 overflow-x-auto rounded-xl border border-brand-border bg-slate-950 p-5 text-xs leading-6 text-slate-300"><code>{
+  "name": "SQLI",
+  "description": "Training labs for SQL injection vulnerabilities.",
+  "sub_modules": [{
+    "name": "BASIC_SQLI",
+    "description": "Authentication bypass caused by SQL string concatenation.",
+    "runtime": "python:3.11-slim",
+    "entrypoint": "main.py",
+    "internal_port": 5000,
+    "codes": { "target_snippet.py": "vulnerable" }
+  }]
+}</code></pre>
+                <div class="mt-5 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-100/80 leading-relaxed"><i class="fa-solid fa-triangle-exclamation text-amber-400 mr-2"></i><strong class="text-amber-300">Important:</strong> the runner creates a session-specific copy of the lab and starts <code class="font-mono text-xs">uvicorn &lt;entrypoint-stem&gt;:app</code>. It does not build the submodule's Dockerfile. Put needed Python packages in the lab's <code class="font-mono text-xs">requirements.txt</code>.</div>
+            </section>
+
+            <section id="workspace" class="mb-12 scroll-mt-24">
+                <h2 class="text-xl font-bold text-white mb-3">Workspace contract</h2>
+                <p class="text-sm text-brand-muted leading-relaxed">The <code class="text-red-300 font-mono text-xs">codes</code> map also authorizes workspace patches. Each key is a file name that must occur only once in the submodule. Files marked <code class="text-red-300 font-mono text-xs">vulnerable</code> are shown in the editor; configure hints and reference fixes in the submodule's own <code class="text-red-300 font-mono text-xs">config.json</code>.</p>
+                <pre class="mt-5 overflow-x-auto rounded-xl border border-brand-border bg-slate-950 p-5 text-xs leading-6 text-slate-300"><code>{
+  "hints": { "target_snippet.py": ["Use parameter binding."] },
+  "solutions": { "target_snippet.py": "codes/solutions/solution_snippet.py" }
+}</code></pre>
+            </section>
+
+            <section id="quality" class="scroll-mt-24 rounded-xl border border-brand-border bg-brand-card p-6">
+                <h2 class="text-xl font-bold text-white mb-4">Quality, safety, and pull requests</h2>
+                <ul class="space-y-3 text-sm text-brand-muted leading-relaxed">
+                    <li><i class="fa-solid fa-check text-emerald-400 mr-2"></i>Use fictional, non-sensitive data and keep exploits inside the target container.</li>
+                    <li><i class="fa-solid fa-check text-emerald-400 mr-2"></i>Do not hard-code host ports; RedPatch maps the internal port automatically.</li>
+                    <li><i class="fa-solid fa-check text-emerald-400 mr-2"></i>Use English for all descriptions, hints, lab messages, and documentation.</li>
+                    <li><i class="fa-solid fa-check text-emerald-400 mr-2"></i>Test module discovery, the workspace, container startup, reset behavior, and both lesson outcomes before submitting.</li>
+                    <li><i class="fa-solid fa-check text-emerald-400 mr-2"></i>Keep pull requests focused and explain the lesson, expected behavior, and validation steps.</li>
+                </ul>
+            </section>
+        </article>
+    </main>
+
+    <footer class="border-t border-brand-border/60 bg-brand-dark py-6 text-xs text-brand-muted font-mono">
+        <div class="max-w-7xl mx-auto px-6 flex items-center justify-between gap-4">
+            <span>RedPatch Contribution Guide</span>
+            <a href="{{ url_for('index') }}" class="hover:text-slate-200 transition-colors">RETURN HOME</a>
+        </div>
+    </footer>
+</body>
+</html>
