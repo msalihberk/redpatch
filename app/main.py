@@ -164,19 +164,10 @@ async def workspace_reset(request: Request, module: str = None, submodule: str =
     if not runtime or not entrypoint or not internal_port or not os.path.exists(path):
         raise HTTPException(status_code=404, detail="Submodule configuration is incomplete")
 
-    container = DockerService.get_container(f"redpatch_{module}_{submodule}")
-    if not container:
-        raise HTTPException(status_code=404, detail="Submodule does not exist")
-
-    try:
-        container.stop(timeout=2)
-    except Exception:
-        pass
-    try:
-        container.remove(force=True)
-    except Exception as exc:
-        logger.exception("Could not remove lab container %s", container.name)
-        raise HTTPException(status_code=503, detail="The lab container could not be reset.") from exc
+    docker_service = DockerService(internal_port, path, entrypoint, runtime, f"redpatch_{module}_{submodule}", get_session_id(request))
+    docker_service.set_exist()
+    docker_service.remove_workspace()
+    docker_service.stop()
 
     return JSONResponse(
         status_code=200,

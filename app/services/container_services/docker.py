@@ -70,6 +70,17 @@ class DockerService:
         if not self.work_dir.exists():
             shutil.copytree(self.original_path, self.work_dir)
 
+    def remove_workspace(self) -> None:
+        """Removes the isolated temporary workspace."""
+        if self.work_dir.exists():
+            shutil.rmtree(self.work_dir)
+
+    def set_exist(self):
+        existing = DockerService.get_container(self.container_name)
+        if existing:
+            self.container = existing
+            self.mapped_host_port = self._resolve_mapped_port()
+
     def start(self, force_reset: bool = False) -> int:
         existing = DockerService.get_container(self.container_name)
         if existing and not force_reset:
