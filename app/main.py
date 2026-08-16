@@ -89,10 +89,22 @@ async def workspace(request: Request, module: str = None, submodule: str = None,
 
     codes = {}
     sub_entry = module_mngr.get_submodule_entry(submodule)
+
+    def find_relative_path(base_path: str, target_name: str) -> str | None:
+        for root, dirs, files in os.walk(base_path):
+            if target_name in files:
+                return os.path.relpath(os.path.join(root, target_name), base_path)
+        return None
+
     for filename in sub_entry.get("codes", {}).keys():
-        # check session temp copy first
-        tmp_path = os.path.join(tmp_workdir, filename)
-        orig_path = os.path.join(path, filename)
+        rel = find_relative_path(path, filename)
+        if rel:
+            tmp_path = os.path.join(tmp_workdir, rel)
+            orig_path = os.path.join(path, rel)
+        else:
+            tmp_path = os.path.join(tmp_workdir, filename)
+            orig_path = os.path.join(path, filename)
+
         if os.path.isfile(tmp_path):
             with open(tmp_path, "r", encoding="utf-8") as fh:
                 codes[filename] = fh.read()
@@ -174,6 +186,54 @@ async def proxy_submodule(module: str, submodule: str, request: Request, path: s
             headers=dict(resp.headers)
         )
 
+
+@app.get("/api/workspace/files")
+async def workspace_files(request: Request, module: str = None, submodule: str = None):
+    """Return the current workspace files for the session.
+
+    This prefers the session temporary workspace (created when the container
+    is started) and falls back to the original module files.
+    """
+    session_id = get_session_id(request)
+    module_mngr = ModuleManager()
+
+    if not module_mngr.is_module_exist(module) or not module_mngr.is_submodule_exist(submodule):
+        raise HTTPException(status_code=404, detail="Submodule not found")
+
+    path = os.path.join(module_mngr.modules_directory, module, "submodules", submodule)
+    sub_entry = module_mngr.get_submodule_entry(submodule)
+    if not sub_entry:
+        raise HTTPException(status_code=404, detail="Submodule not found")
+
+    tmp_workdir = DockerService.get_work_dir_for(session_id, path)
+
+    def find_relative_path(base_path: str, target_name: str) -> str | None:
+        for root, dirs, files in os.walk(base_path):
+            if target_name in files:
+                return os.path.relpath(os.path.join(root, target_name), base_path)
+        return None
+
+    files = {}
+    for filename in sub_entry.get("codes", {}).keys():
+        rel = find_relative_path(path, filename)
+        if rel:
+            tmp_path = os.path.join(tmp_workdir, rel)
+            orig_path = os.path.join(path, rel)
+        else:
+            tmp_path = os.path.join(tmp_workdir, filename)
+            orig_path = os.path.join(path, filename)
+
+        if os.path.isfile(tmp_path):
+            with open(tmp_path, "r", encoding="utf-8") as fh:
+                files[filename] = fh.read()
+        elif os.path.isfile(orig_path):
+            with open(orig_path, "r", encoding="utf-8") as fh:
+                files[filename] = fh.read()
+        else:
+            files[filename] = ""
+
+    return JSONResponse(status_code=200, content=files)
+
 @app.post("/api/workspace/patch")
 async def workspace_patch(request: Request, payload: PatchRequest):
     session_id = get_session_id(request)
@@ -223,7 +283,17 @@ async def workspace_patch(request: Request, payload: PatchRequest):
             detail=f"Target file '{payload.filename}' is not allowed to be modified.",
         )
 
-    patched = docker_service.patch_code(payload.filename, payload.code)
+    # Resolve the relative path inside the submodule so we patch the correct nested file
+    def find_relative_path(base_path: str, target_name: str) -> str | None:
+        for root, dirs, files in os.walk(base_path):
+            if target_name in files:
+                return os.path.relpath(os.path.join(root, target_name), base_path)
+        return None
+
+    relpath = find_relative_path(path, payload.filename)
+    target_rel = relpath or payload.filename
+
+    patched = docker_service.patch_code(target_rel, payload.code)
 
     if not patched:
         raise HTTPException(

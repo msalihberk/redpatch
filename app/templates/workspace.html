@@ -174,11 +174,39 @@
         const currentMode = "{{ mode }}";
         const targetProxyUrl = `/proxy/${currentModule}/${currentSubmodule}`;
 
-        const rawFilesData = JSON.parse(document.getElementById('files-data').textContent);
+        const rawFilesData = JSON.parse(document.getElementById('files-data').textContent || '{}');
 
         let monacoEditor = null;
         let fileModels = {};
-        let activeFilename = "{% if codes %}{{ (codes.keys() | list)[0] }}{% endif %}";
+        let activeFilename = null; // will be resolved from rawFilesData or server
+
+        function getInitialActiveFilename() {
+            const keys = Object.keys(rawFilesData || {});
+            return keys.length ? keys[0] : null;
+        }
+
+        function renderTabs() {
+            const tabs = document.getElementById('file-tabs');
+            tabs.innerHTML = '';
+            const filenames = Object.keys(fileModels);
+            if (!filenames.length) {
+                tabs.innerHTML = '<span class="text-slate-500 px-3 py-1">No source files available</span>';
+                return;
+            }
+
+            filenames.forEach((filename, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'tab-btn px-3 py-1.5 rounded-t border-t border-x border-transparent hover:text-white flex items-center gap-2 transition-all';
+                if (filename === activeFilename) {
+                    btn.classList.add('bg-cardBg/80', 'text-patchRed', 'border-borderBg', 'font-semibold', 'active-tab');
+                } else {
+                    btn.classList.add('text-slate-400', 'bg-slate-900/40');
+                }
+                btn.innerHTML = '<i class="fa-regular fa-file-code"></i><span>' + filename + '</span>';
+                btn.onclick = (evt) => switchTab(filename, { currentTarget: btn });
+                tabs.appendChild(btn);
+            });
+        }
 
         function getLanguageByExtension(filename) {
             const ext = filename.split('.').pop().toLowerCase();
@@ -232,14 +260,18 @@
         require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
 
         require(['vs/editor/editor.main'], function () {
-            Object.keys(rawFilesData).forEach(filename => {
-                const content = rawFilesData[filename];
+            // initialize models from server-provided rawFilesData
+            Object.keys(rawFilesData || {}).forEach(filename => {
+                const content = rawFilesData[filename] || '';
                 const lang = resolveLanguage(filename, content);
                 fileModels[filename] = {
                     model: monaco.editor.createModel(content, lang),
                     language: lang
                 };
             });
+
+            // determine initial active file
+            activeFilename = getInitialActiveFilename();
 
             const container = document.getElementById('monaco-editor-container');
             const initialFile = activeFilename && fileModels[activeFilename];
@@ -258,10 +290,45 @@
                 padding: { top: 12, bottom: 12 }
             });
 
-            if (activeFilename) {
-                updateUIHeader(activeFilename);
-            }
+            renderTabs();
+            if (activeFilename) updateUIHeader(activeFilename);
         });
+
+        async function fetchWorkspaceFiles() {
+            try {
+                const res = await fetch(`/api/workspace/files?module=${encodeURIComponent(currentModule)}&submodule=${encodeURIComponent(currentSubmodule)}`);
+                if (!res.ok) return null;
+                return await res.json();
+            } catch (e) {
+                return null;
+            }
+        }
+
+        async function reloadEditorFiles(newFiles) {
+            if (!newFiles) return;
+            Object.keys(newFiles).forEach(filename => {
+                const content = newFiles[filename] || '';
+                if (fileModels[filename]) {
+                    // update existing model value if different
+                    const model = fileModels[filename].model;
+                    if (model.getValue() !== content) model.setValue(content);
+                } else {
+                    const lang = resolveLanguage(filename, content);
+                    fileModels[filename] = { model: monaco.editor.createModel(content, lang), language: lang };
+                }
+            });
+
+            // ensure activeFilename exists
+            if (!activeFilename) activeFilename = Object.keys(fileModels)[0] || null;
+
+            // if current model is null, set it
+            if (activeFilename && monacoEditor && monacoEditor.getModel() !== fileModels[activeFilename].model) {
+                monacoEditor.setModel(fileModels[activeFilename].model);
+            }
+
+            renderTabs();
+            if (activeFilename) updateUIHeader(activeFilename);
+        }
 
         function updateUIHeader(filename) {
             document.getElementById('active-filename-display').innerText = filename;
@@ -308,9 +375,12 @@
                     if (res.ok) {
                         iframe.src = targetProxyUrl;
                         overlay.classList.add('hidden');
-
                         statusIndicator.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
                         statusText.innerText = "CONTAINER ACTIVE";
+
+                        // Reload workspace files from session temp workspace so editor shows latest
+                        const files = await fetchWorkspaceFiles();
+                        if (files) await reloadEditorFiles(files);
                         return;
                     }
                 } catch (e) {
