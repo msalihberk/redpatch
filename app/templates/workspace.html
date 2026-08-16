@@ -23,11 +23,20 @@
     </script>
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Monaco Editor CDN Loader -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+
     <style>
-        pre, code, textarea { font-family: 'Fira Code', 'Courier New', Courier, monospace; }
+        pre, code { font-family: 'Fira Code', 'Courier New', Courier, monospace; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #0f172a; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+
+        /* Monaco Container Fixes */
+        .monaco-editor, .monaco-editor .overflow-guard {
+            border-radius: 0.375rem;
+        }
     </style>
 </head>
 <body class="bg-darkBg text-slate-200 h-screen flex flex-col overflow-hidden font-sans">
@@ -88,20 +97,12 @@
             <!-- Context Info Bar -->
             <div class="bg-slate-900/40 p-2.5 border-b border-borderBg text-xs text-slate-300 flex items-center justify-between">
                 <span><strong class="text-patchRed">Target File:</strong> <span id="active-filename-display">Select a file</span></span>
-                <span class="text-slate-500 font-mono text-[11px]">UTF-8 Encoding</span>
+                <span id="active-language-display" class="text-slate-500 font-mono text-[11px] uppercase">DETECTING...</span>
             </div>
 
-            <!-- Textarea Editor / Content Area -->
-            <div class="flex-1 p-3 relative">
-                {% if codes %}
-                    {% for filename, content in codes.items() %}
-                    <textarea id="editor-{{ filename }}" class="code-textarea w-full h-full bg-slate-950 text-emerald-400 p-4 rounded-lg border border-slate-800 focus:border-patchRed focus:outline-none resize-none font-mono text-sm leading-relaxed {% if not loop.first %}hidden{% endif %}" spellcheck="false">{{ content }}</textarea>
-                    {% endfor %}
-                {% else %}
-                    <div class="w-full h-full bg-slate-950 p-4 rounded-lg border border-slate-800 text-slate-500 font-mono text-sm">
-                        # No code snippets loaded for this submodule.
-                    </div>
-                {% endif %}
+            <!-- Monaco Editor Container -->
+            <div class="flex-1 p-2 relative overflow-hidden bg-slate-950">
+                <div id="monaco-editor-container" class="w-full h-full rounded-md overflow-hidden"></div>
             </div>
 
             <!-- Action Footer -->
@@ -161,6 +162,11 @@
 
     </main>
 
+    <!-- Pass backend template codes cleanly into JS -->
+    <script id="files-data" type="application/json">
+        {{ codes | tojson | safe if codes else '{}' }}
+    </script>
+
     <!-- WORKSPACE SCRIPT -->
     <script>
         const currentModule = "{{ module }}";
@@ -168,25 +174,115 @@
         const currentMode = "{{ mode }}";
         const targetProxyUrl = `/proxy/${currentModule}/${currentSubmodule}`;
 
+        // Load source code files from JSON script element
+        const rawFilesData = JSON.parse(document.getElementById('files-data').textContent);
+
+        let monacoEditor = null;
+        let fileModels = {};
         let activeFilename = "{% if codes %}{{ (codes.keys() | list)[0] }}{% endif %}";
 
-        document.addEventListener("DOMContentLoaded", () => {
-            const firstTab = document.querySelector('.tab-btn span');
-            if (firstTab) {
-                activeFilename = firstTab.innerText;
-                document.getElementById('active-filename-display').innerText = activeFilename;
+        // Extension to Language Mapping
+        function getLanguageByExtension(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            const map = {
+                'py': 'python',
+                'js': 'javascript',
+                'ts': 'typescript',
+                'html': 'html',
+                'htm': 'html',
+                'css': 'css',
+                'php': 'php',
+                'c': 'c',
+                'cpp': 'cpp',
+                'cs': 'csharp',
+                'go': 'go',
+                'sh': 'shell',
+                'bash': 'shell',
+                'sql': 'sql',
+                'json': 'json',
+                'xml': 'xml',
+                'yaml': 'yaml',
+                'yml': 'yaml',
+                'md': 'markdown'
+            };
+            return map[ext] || null;
+        }
+
+        // Automatic Language Detection (Fallback for extension-less files or unknown types)
+        function autoDetectLanguage(code) {
+            if (!code || !code.trim()) return 'plaintext';
+            const sample = code.trim();
+
+            if (sample.startsWith('<?php') || sample.includes('<?php')) return 'php';
+            if (sample.startsWith('<!DOCTYPE html') || sample.startsWith('<html') || (sample.startsWith('<') && sample.endsWith('>'))) return 'html';
+            if (sample.includes('import ') && sample.includes('def ') && sample.includes(':')) return 'python';
+            if (sample.includes('function') || sample.includes('const ') || sample.includes('let ') || sample.includes('=>')) return 'javascript';
+            if (sample.includes('SELECT ') || sample.includes('INSERT INTO') || sample.includes('UPDATE ')) return 'sql';
+            if (sample.startsWith('{') || sample.startsWith('[')) {
+                try { JSON.parse(sample); return 'json'; } catch(e) {}
+            }
+            if (sample.includes('package main') || sample.includes('func main()')) return 'go';
+            if (sample.includes('#include <')) return 'c';
+            if (sample.includes('using System;')) return 'csharp';
+
+            return 'plaintext';
+        }
+
+        // Determine language name for a given file
+        function resolveLanguage(filename, content) {
+            return getLanguageByExtension(filename) || autoDetectLanguage(content);
+        }
+
+        // Configure Monaco Loader
+        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
+
+        require(['vs/editor/editor.main'], function () {
+            // Create in-memory models for each file
+            Object.keys(rawFilesData).forEach(filename => {
+                const content = rawFilesData[filename];
+                const lang = resolveLanguage(filename, content);
+                fileModels[filename] = {
+                    model: monaco.editor.createModel(content, lang),
+                    language: lang
+                };
+            });
+
+            // Initialize Monaco Editor
+            const container = document.getElementById('monaco-editor-container');
+            const initialFile = activeFilename && fileModels[activeFilename];
+
+            monacoEditor = monaco.editor.create(container, {
+                model: initialFile ? initialFile.model : null,
+                theme: 'vs-dark',
+                automaticLayout: true,
+                fontSize: 13,
+                fontFamily: "'Fira Code', 'Courier New', Courier, monospace",
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                lineNumbers: 'on',
+                roundedSelection: true,
+                cursorBlinking: 'smooth',
+                padding: { top: 12, bottom: 12 }
+            });
+
+            if (activeFilename) {
+                updateUIHeader(activeFilename);
             }
         });
 
+        function updateUIHeader(filename) {
+            document.getElementById('active-filename-display').innerText = filename;
+            const lang = fileModels[filename] ? fileModels[filename].language : 'plaintext';
+            document.getElementById('active-language-display').innerText = lang.toUpperCase();
+        }
+
         // Tab Switching Logic
         function switchTab(filename, evt) {
+            if (!monacoEditor || !fileModels[filename]) return;
+
             activeFilename = filename;
-            document.getElementById('active-filename-display').innerText = filename;
-
-            document.querySelectorAll('.code-textarea').forEach(el => el.classList.add('hidden'));
-
-            const targetEditor = document.getElementById(`editor-${filename}`);
-            if (targetEditor) targetEditor.classList.remove('hidden');
+            monacoEditor.setModel(fileModels[filename].model);
+            updateUIHeader(filename);
 
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.classList.remove('bg-cardBg/80', 'text-patchRed', 'border-borderBg', 'font-semibold', 'active-tab');
@@ -252,14 +348,11 @@
             }
         }
 
-        // Apply Patch Request to FastAPI
+        // Apply Patch Request to Backend
         async function applyPatch() {
-            if (!activeFilename) return;
+            if (!activeFilename || !monacoEditor) return;
 
-            const activeEditor = document.getElementById(`editor-${activeFilename}`);
-            if (!activeEditor) return;
-
-            const codeContent = activeEditor.value;
+            const codeContent = monacoEditor.getValue();
             const statusText = document.getElementById('patch-status');
 
             statusText.innerText = `Patching ${activeFilename}...`;
@@ -295,47 +388,53 @@
 
         // Reset Lab Container
         async function resetLab() {
-        if (!confirm("Are you sure you want to reset this lab session? Unsaved changes will be lost.")) return;
+            if (!confirm("Are you sure you want to reset this lab session? Unsaved changes will be lost.")) return;
 
-        try {
-            const res = await fetch(`/api/workspace/reset?module=${encodeURIComponent(currentModule)}&submodule=${encodeURIComponent(currentSubmodule)}`, {
-                method: 'POST'
-            });
+            try {
+                const res = await fetch(`/api/workspace/reset?module=${encodeURIComponent(currentModule)}&submodule=${encodeURIComponent(currentSubmodule)}`, {
+                    method: 'POST'
+                });
 
-            const contentType = res.headers.get("content-type");
+                const contentType = res.headers.get("content-type");
 
-            if (contentType && contentType.includes("application/json")) {
-                const data = await res.json();
+                if (contentType && contentType.includes("application/json")) {
+                    const data = await res.json();
 
-                if (res.ok && data.status === "success") {
-                    location.reload();
+                    if (res.ok && data.status === "success") {
+                        location.reload();
+                    } else {
+                        alert("Failed to reset lab: " + (data.detail || data.message || "Unknown error"));
+                    }
                 } else {
-                    alert("Failed to reset lab: " + (data.detail || data.message || "Unknown error"));
+                    const errorText = await res.text();
+                    showErrorPage(`Server Error (${res.status} ${res.statusText})`, errorText);
                 }
-            } else {
-                const errorText = await res.text();
-                showErrorPage(`Server Error (${res.status} ${res.statusText})`, errorText);
+            } catch (e) {
+                alert("Network or script error while resetting lab: " + e.message);
             }
-        } catch (e) {
-            alert("Network or script error while resetting lab: " + e.message);
         }
-    }
 
-    function showErrorPage(title, htmlContent) {
-        const errorWindow = window.open("", "_blank");
-        if (errorWindow) {
-            errorWindow.document.write(htmlContent);
-            errorWindow.document.close();
-        } else {
-            document.body.innerHTML = `
-                <div style="padding: 20px; background: #0f172a; color: #ef4444; font-family: monospace;">
-                    <h2>${title}</h2>
-                    <hr style="border-color: #334155; margin: 10px 0;"/>
-                    <div>${htmlContent}</div>
-                </div>
-            `;
+        function showErrorPage(title, htmlContent) {
+            const errorWindow = window.open("", "_blank");
+            if (errorWindow) {
+                errorWindow.document.write(htmlContent);
+                errorWindow.document.close();
+            } else {
+                document.body.innerHTML = `
+                    <div style="padding: 20px; background: #0f172a; color: #ef4444; font-family: monospace;">
+                        <h2>${title}</h2>
+                        <hr style="border-color: #334155; margin: 10px 0;"/>
+                        <div>${htmlContent}</div>
+                    </div>
+                `;
+            }
         }
-    }
+
+        // Send signal to stop container on tab close
+        window.addEventListener("beforeunload", () => {
+            const stopUrl = `/api/workspace/stop?module=${encodeURIComponent(currentModule)}&submodule=${encodeURIComponent(currentSubmodule)}`;
+            navigator.sendBeacon(stopUrl);
+        });
     </script>
 </body>
 </html>

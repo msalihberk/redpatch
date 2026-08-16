@@ -6,7 +6,7 @@
           "name": "BASIC_SQLI",
           "description": "Bypassing authentication via string concatenation.",
           "runtime": "python:3.11-slim",
-          "entrypoint": "app.py",
+          "entrypoint": "main.py",
           "internal_port": 5000,
           "codes": {
             "target_snippet.py": "vulnerable",

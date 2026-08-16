@@ -9,7 +9,11 @@ from app.services.ai.ai_agent import RedTeamAgent
 from app.services.container_services.docker import DockerService
 from app.services.module_manager.manager import ModuleManager
 
-app = FastAPI(title="RedPatch")
+
+async def lifespan(app: FastAPI):
+    yield
+    DockerService.cleanup_all_redpatch_containers()
+app = FastAPI(title="RedPatch", lifespan=lifespan)
 templates = Jinja2Templates(directory="app/templates")
 agent = RedTeamAgent()
 
@@ -53,8 +57,7 @@ async def workspace(request: Request, module: str = None, submodule: str = None,
     path = os.path.join(module_mngr.modules_directory, module, "submodules", submodule)
     if not runtime or not entrypoint or not internal_port or not os.path.exists(path):
         raise HTTPException(status_code=404, detail="Submodule configuration is incomplete")
-    docker_service = DockerService(internal_port, path, entrypoint, runtime, f"{module}_{submodule}")
-    docker_service.start()
+    
     codes = module_mngr.read_submodule(module, submodule)
     return templates.TemplateResponse(request, "workspace.html", {"module": module, "submodule": submodule, "mode": mode, "codes": codes})
 
@@ -71,10 +74,14 @@ async def workspace_reset(request: Request, module: str = None, submodule: str =
     if not runtime or not entrypoint or not internal_port or not os.path.exists(path):
         raise HTTPException(status_code=404, detail="Submodule configuration is incomplete")
 
-    container = DockerService.get_container(f"{module}_{submodule}")
+    container = DockerService.get_container(f"redpatch_{module}_{submodule}")
     if not container:
-        raise HTTPException(status_code=404, detail="Submodule not exist")
-    container.stop()
+        raise HTTPException(status_code=404, detail="Submodule does not exist")
+
+    try:
+        container.stop(timeout=2)
+    except Exception:
+        pass
     container.remove(force=True)
 
     return JSONResponse(
@@ -95,7 +102,7 @@ async def proxy_submodule(module: str, submodule: str, request: Request, path: s
     pth = os.path.join(module_mngr.modules_directory, module, "submodules", submodule)
     if not runtime or not entrypoint or not internal_port or not os.path.exists(pth):
         raise HTTPException(status_code=404, detail="Submodule configuration is incomplete")
-    docker_service = DockerService(internal_port, pth, entrypoint, runtime, f"{module}_{submodule}")
+    docker_service = DockerService(internal_port, pth, entrypoint, runtime, f"redpatch_{module}_{submodule}")
     container_port = docker_service.start()
 
     if not container_port:
