@@ -698,7 +698,7 @@
         if (Object.keys(reqHeaders).length) {
             targetUrl.searchParams.set('_redpatch_headers', encodeProxyMetadata(reqHeaders));
         }
-        
+
         const usesJsonBody = Object.keys(reqData).length === 0 && Object.keys(reqJsonBody).length > 0;
         if (usesJsonBody) {
             targetUrl.searchParams.set('_redpatch_json_body', encodeProxyMetadata(reqJsonBody));
