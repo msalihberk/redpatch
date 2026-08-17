@@ -116,7 +116,6 @@ Hint values must be arrays of strings. Each `solutions` key must match a vulnera
 - Do not hard-code host ports. RedPatch assigns an available host port and proxies requests to the lab.
 - Treat the original submodule directory as source material. Workspace edits occur in per-session temporary copies and should not modify committed lab files.
 - Keep dependencies minimal and pin them when reproducibility requires it.
-- Write all user-facing names, descriptions, hints, messages, and documentation in English.
 
 ## Testing a contribution
 

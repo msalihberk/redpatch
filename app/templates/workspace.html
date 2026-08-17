@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RedPatch Workspace | {{ module }} - {{ submodule }}</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', path='favicon.ico') }}">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -48,8 +49,9 @@
                 <i class="fa-solid fa-arrow-left"></i>
             </a>
             <div class="h-4 w-px bg-borderBg"></div>
-            <a href="{{ url_for('index') }}" class="font-bold tracking-wider text-patchRed hover:text-red-400 text-sm uppercase">
-                RedPatch
+
+            <a href="/" class="flex items-center space-x-3 shrink-0 transition-opacity hover:opacity-90">
+                {% include 'components/header.html' %}
             </a>
 
             <span class="text-slate-500">/</span>
@@ -474,7 +476,8 @@
             const pollServer = async () => {
                 try {
                     const res = await fetch(targetProxyUrl, { method: 'GET' });
-                    if (res.ok) {
+                    const containerStatus = res.headers.get('X-Container-Status');
+                    if (res.ok && containerStatus !== 'starting') {
                         iframe.src = targetProxyUrl;
                         overlay.classList.add('hidden');
                         statusIndicator.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
@@ -635,74 +638,92 @@
         }
 
         function executeExploitInIframe(exploitRequest) {
-            if (!exploitRequest || !exploitRequest.path) {
-                throw new Error('The AI response does not include an exploit request.');
-            }
-
-            const iframe = document.getElementById('target-canvas');
-            // A form target resolves a browsing context by iframe *name*, not
-            // by its DOM id. Keep this assignment as a guard for dynamically
-            // rendered workspace views as well.
-            iframe.name = 'target-canvas';
-            const method = (exploitRequest.method || 'GET').toUpperCase();
-            if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
-                throw new Error(`Unsupported HTTP method: ${method}`);
-            }
-
-            const rawPath = String(exploitRequest.path);
-            if (rawPath.includes('://')) {
-                throw new Error('Exploit request paths must be relative to the current lab.');
-            }
-
-            const [pathOnly, pathQuery = ''] = rawPath.split('?', 2);
-            const relativePath = pathOnly.replace(/^\/+/, '');
-            const targetUrl = new URL(
-                `${targetProxyUrl}/${relativePath}`.replace(/\/$/, relativePath ? '' : '/'),
-                window.location.origin
-            );
-            const queryParams = new URLSearchParams(pathQuery);
-            Object.entries(exploitRequest.params || {}).forEach(([key, value]) => {
-                queryParams.set(key, typeof value === 'object' ? JSON.stringify(value) : String(value));
-            });
-            targetUrl.search = queryParams.toString();
-
-            if (method === 'GET') {
-                iframe.src = targetUrl.toString();
-                return;
-            }
-
-            // Browser forms only implement GET/POST. The proxy converts this
-            // lab-scoped marker to the requested method before forwarding it.
-            if (method !== 'POST') {
-                targetUrl.searchParams.set('_redpatch_method', method);
-            }
-            if (exploitRequest.headers && Object.keys(exploitRequest.headers).length) {
-                targetUrl.searchParams.set('_redpatch_headers', encodeProxyMetadata(exploitRequest.headers));
-            }
-            const usesJsonBody = !exploitRequest.data && exploitRequest.json_body;
-            if (usesJsonBody) {
-                targetUrl.searchParams.set('_redpatch_json_body', encodeProxyMetadata(exploitRequest.json_body));
-            }
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = targetUrl.toString();
-            form.target = iframe.name;
-            form.enctype = 'application/x-www-form-urlencoded';
-            form.style.display = 'none';
-
-            const payloadData = exploitRequest.data || exploitRequest.json_body || {};
-            Object.entries(payloadData).forEach(([key, value]) => {
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = key;
-                input.value = typeof value === 'object' ? JSON.stringify(value) : String(value);
-                form.appendChild(input);
-            });
-
-            document.body.appendChild(form);
-            form.submit();
-            form.remove();
+        if (!exploitRequest || !exploitRequest.path) {
+            throw new Error('The AI response does not include an exploit request.');
         }
+
+        const iframe = document.getElementById('target-canvas');
+        iframe.name = 'target-canvas';
+        const method = (exploitRequest.method || 'GET').toUpperCase();
+        if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+            throw new Error(`Unsupported HTTP method: ${method}`);
+        }
+
+        const rawPath = String(exploitRequest.path);
+        if (rawPath.includes('://')) {
+            throw new Error('Exploit request paths must be relative to the current lab.');
+        }
+
+        const [pathOnly, pathQuery = ''] = rawPath.split('?', 2);
+        const relativePath = pathOnly.replace(/^\/+/, '');
+        const targetUrl = new URL(
+            `${targetProxyUrl}/${relativePath}`.replace(/\/$/, relativePath ? '' : '/'),
+            window.location.origin
+        );
+
+        function safeParseField(fieldValue) {
+            if (!fieldValue || fieldValue === 'null') return {};
+            if (typeof fieldValue === 'object') return fieldValue;
+            if (typeof fieldValue === 'string') {
+                try {
+                    const parsed = JSON.parse(fieldValue);
+                    return typeof parsed === 'object' && parsed !== null ? parsed : {};
+                } catch (e) {
+                    return {};
+                }
+            }
+            return {};
+        }
+
+        const reqHeaders = safeParseField(exploitRequest.headers);
+        const reqParams = safeParseField(exploitRequest.params);
+        const reqData = safeParseField(exploitRequest.data);
+        const reqJsonBody = safeParseField(exploitRequest.json_body);
+
+        const queryParams = new URLSearchParams(pathQuery);
+        Object.entries(reqParams).forEach(([key, value]) => {
+            queryParams.set(key, typeof value === 'object' ? JSON.stringify(value) : String(value));
+        });
+        targetUrl.search = queryParams.toString();
+
+        if (method === 'GET') {
+            iframe.src = targetUrl.toString();
+            return;
+        }
+
+        if (method !== 'POST') {
+            targetUrl.searchParams.set('_redpatch_method', method);
+        }
+
+        if (Object.keys(reqHeaders).length) {
+            targetUrl.searchParams.set('_redpatch_headers', encodeProxyMetadata(reqHeaders));
+        }
+        
+        const usesJsonBody = Object.keys(reqData).length === 0 && Object.keys(reqJsonBody).length > 0;
+        if (usesJsonBody) {
+            targetUrl.searchParams.set('_redpatch_json_body', encodeProxyMetadata(reqJsonBody));
+        }
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = targetUrl.toString();
+        form.target = iframe.name;
+        form.enctype = 'application/x-www-form-urlencoded';
+        form.style.display = 'none';
+
+        const payloadData = Object.keys(reqData).length > 0 ? reqData : reqJsonBody;
+        Object.entries(payloadData).forEach(([key, value]) => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = key;
+            input.value = typeof value === 'object' ? JSON.stringify(value) : String(value);
+            form.appendChild(input);
+        });
+
+        document.body.appendChild(form);
+        form.submit();
+        form.remove();
+    }
 
         function encodeProxyMetadata(value) {
             return btoa(unescape(encodeURIComponent(JSON.stringify(value))));

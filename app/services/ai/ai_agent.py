@@ -2,10 +2,10 @@ from app.core.config import settings
 from app.services.ai.base import BaseLLMProvider, VulnerabilityAnalysis
 from app.services.ai.gemini_provider import GeminiProvider
 
-
 class RedTeamAgent:
     def __init__(self):
         self.provider: BaseLLMProvider = self._get_provider()
+
     def _get_provider(self) -> BaseLLMProvider:
         provider_name = settings.LLM_PROVIDER.lower()
 

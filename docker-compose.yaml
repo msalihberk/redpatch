@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  redpatch-app:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./app:/app
+      - lab_tmp:/app/sessions
+      - ./.env:/app/.env
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - redpatch_net
+
+volumes:
+  lab_tmp:
+    name: redpatch_lab_tmp
+
+networks:
+  redpatch_net:
+    name: redpatch_net

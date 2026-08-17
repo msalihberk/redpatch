@@ -8,11 +8,13 @@ import httpx
 from fastapi import FastAPI, Request, Response, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 
 from app.services.ai.ai_agent import RedTeamAgent
 from app.services.container_services.docker import DockerService
 from app.services.module_manager.manager import ModuleManager
 from pydantic import BaseModel, Field
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +35,9 @@ async def lifespan(app: FastAPI):
     yield
     DockerService.cleanup_all_redpatch_containers()
 app = FastAPI(title="RedPatch", lifespan=lifespan)
+BASE_DIR = Path(__file__).resolve().parent
+app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
+
 templates = Jinja2Templates(directory="app/templates")
 @app.middleware("http")
 async def ensure_session_cookie(request: Request, call_next):
@@ -176,7 +181,6 @@ async def workspace_reset(request: Request, module: str = None, submodule: str =
             "message": f"Lab '{submodule}' reset successfully."
         }
     )
-
 @app.api_route("/proxy/{module}/{submodule}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 @app.api_route("/proxy/{module}/{submodule}/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 async def proxy_submodule(module: str, submodule: str, request: Request, path: str = ""):
@@ -203,14 +207,13 @@ async def proxy_submodule(module: str, submodule: str, request: Request, path: s
             detail=f"'{submodule}' No active port was found. The container may not have started. "
         )
 
-    # Native HTML forms support GET and POST only.  The workspace uses this
-    # explicitly scoped override for PUT/PATCH/DELETE forms targeted at the
-    # iframe; it is never forwarded to the lab application.
     requested_method = request.query_params.get("_redpatch_method", request.method).upper()
     if requested_method not in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
         raise HTTPException(status_code=405, detail="Unsupported proxy request method")
 
-    target_url = f"http://127.0.0.1:{container_port}/{path}"
+    container_name = f"redpatch_{module}_{submodule}"
+    target_url = f"http://{container_name}:{internal_port}/{path}"
+
     control_params = {"_redpatch_method", "_redpatch_headers", "_redpatch_json_body"}
     query_params = [
         (key, value)
@@ -230,8 +233,6 @@ async def proxy_submodule(module: str, submodule: str, request: Request, path: s
 
     async with httpx.AsyncClient() as client:
         body = await request.body()
-        # This retains the browser Cookie header (including session_id), while
-        # allowing httpx to calculate the upstream Host and Content-Length.
         headers = {k: v for k, v in request.headers.items() if k.lower() not in ("host", "content-length")}
 
         exploit_headers = decode_proxy_metadata("_redpatch_headers")
@@ -257,19 +258,29 @@ async def proxy_submodule(module: str, submodule: str, request: Request, path: s
             body = json.dumps(json_body).encode("utf-8")
             headers["content-type"] = "application/json"
 
-        resp = await client.request(
-            method=requested_method,
-            url=target_url,
-            headers=headers,
-            params=query_params,
-            content=body,
-            timeout=10.0
-        )
-        return Response(
-            content=resp.content,
-            status_code=resp.status_code,
-            headers=dict(resp.headers)
-        )
+        try:
+            resp = await client.request(
+                method=requested_method,
+                url=target_url,
+                headers=headers,
+                params=query_params,
+                content=body,
+                timeout=10.0
+            )
+            return Response(
+                content=resp.content,
+                status_code=resp.status_code,
+                headers=dict(resp.headers)
+            )
+        except (httpx.HTTPError, Exception) as e:
+            return Response(
+                content=f'{{"status": "starting"}}',
+                status_code=200,
+                headers={
+                    "content-type": "application/json",
+                    "X-Container-Status": "starting"
+                }
+            )
 
 
 @app.get("/api/workspace/files")

@@ -13,12 +13,6 @@ app = FastAPI(title="SQL Injection Lab Submodule")
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
-
-class LoginPayload(BaseModel):
-    username: str = ""
-    password: str = ""
-
-
 def init_db():
     conn = sqlite3.connect(BASE_DIR / "vulnerable.db")
     cursor = conn.cursor()
@@ -66,9 +60,10 @@ def login_response(request: Request, result: dict, status_code: int):
 
 
 @app.post("/login-vulnerable")
-async def login_vulnerable(request: Request, payload: LoginPayload):
-    username = payload.username
-    password = payload.password
+async def login_vulnerable(request: Request):
+    form_data = await request.form()
+    username = form_data.get("username")
+    password = form_data.get("password")
 
     user, query, conn = vulnerable_authenticate_user(username, password)
 
@@ -108,9 +103,10 @@ async def login_vulnerable(request: Request, payload: LoginPayload):
 
 
 @app.post("/login-fixed")
-async def login_fixed(request: Request, payload: LoginPayload):
-    username = payload.username
-    password = payload.password
+async def login_fixed(request: Request):
+    form_data = await request.form()
+    username = form_data.get("username")
+    password = form_data.get("password")
 
     user, query, conn = secure_authenticate_user(username, password)
 

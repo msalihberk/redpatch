@@ -29,8 +29,7 @@ class DockerService:
             or f"redpatch_{entrypoint.replace('.py', '').lower()}"
         )
 
-        # Isolated temporary workspace for each session (portable temp dir)
-        base_tmp = pathlib.Path(tempfile.gettempdir())
+        base_tmp = pathlib.Path("/app/sessions")
         self.work_dir = base_tmp / f"redpatch_sessions" / f"{self.session_id}_{self.original_path.name}"
 
         self.container = None
@@ -96,8 +95,11 @@ class DockerService:
         self._prepare_workspace(force_reset=force_reset)
 
         module_name = self.entrypoint.replace(".py", "")
+        container_work_dir = f"/app/sessions/redpatch_sessions/{self.session_id}_{self.original_path.name}"
+
         start_command = (
-            f"sh -c 'if [ -f /app/requirements.txt ]; then pip install --no-cache-dir -r /app/requirements.txt; fi && "
+            f"sh -c 'cd {container_work_dir} && "
+            f"if [ -f requirements.txt ]; then pip install --no-cache-dir -r requirements.txt; fi && "
             f"exec uvicorn {module_name}:app --host 0.0.0.0 --port {self.internal_port} --reload'"
         )
 
@@ -105,16 +107,16 @@ class DockerService:
             image=self.runtime,
             name=self.container_name,
             command=start_command,
-            working_dir="/app",
+            working_dir=container_work_dir,
             volumes={
-                str(self.work_dir.resolve()): {
-                    "bind": "/app",
-                    "mode": "rw",
+                'redpatch_lab_tmp': {
+                    'bind': '/app/sessions',
+                    'mode': 'rw'
                 }
             },
             ports={f"{self.internal_port}/tcp": None},
             detach=True,
-            network_mode="bridge",
+            network="redpatch_net",
         )
         self.mapped_host_port = self._resolve_mapped_port()
         return self.mapped_host_port
@@ -198,7 +200,7 @@ class DockerService:
         except Exception:
             pass
 
-        base_tmp = pathlib.Path(tempfile.gettempdir())
+        base_tmp = pathlib.Path("/app/sessions")
         sessions_dir = base_tmp / "redpatch_sessions"
         if sessions_dir.exists():
             shutil.rmtree(sessions_dir, ignore_errors=True)
@@ -210,6 +212,6 @@ class DockerService:
         This is a helper to allow other components to read session-specific copies
         without instantiating a full DockerService.
         """
-        base_tmp = pathlib.Path(tempfile.gettempdir())
+        base_tmp = pathlib.Path("/app/sessions")
         original_name = pathlib.Path(original_path).resolve().name
         return base_tmp / "redpatch_sessions" / f"{session_id}_{original_name}"
