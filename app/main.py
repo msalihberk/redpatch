@@ -13,6 +13,8 @@ from fastapi.staticfiles import StaticFiles
 from app.services.ai.ai_agent import RedTeamAgent
 from app.services.container_services.docker import DockerService
 from app.services.module_manager.manager import ModuleManager
+from app.services.container_services.helpers import DockerHelper
+
 from pydantic import BaseModel, Field
 from pathlib import Path
 
@@ -212,7 +214,10 @@ async def proxy_submodule(module: str, submodule: str, request: Request, path: s
         raise HTTPException(status_code=405, detail="Unsupported proxy request method")
 
     container_name = f"redpatch_{module}_{submodule}"
-    target_url = f"http://{container_name}:{internal_port}/{path}"
+    if DockerHelper.is_running_in_docker():
+        target_url = f"http://{container_name}:{internal_port}/{path}"
+    else:
+        target_url = f"http://127.0.0.1:{internal_port}/{path}"
 
     control_params = {"_redpatch_method", "_redpatch_headers", "_redpatch_json_body"}
     query_params = [

@@ -12,6 +12,10 @@ class AIConfigurations:
                     1. FOCUS: Focus strictly on the specified vulnerability type ({vulnerability_type}) and ignore all other vulnerability types.
                     2. EXPLOIT GENERATION: Formulate a precise HTTP exploit payload targeting the exposed routes. DO NOT write full Python execution code or hardcode domain/port numbers. Provide relative path endpoints (e.g., '/login', '/search').
                     3. PEDAGOGICAL TONE: Explain where the flaw lies in the source code using an educational, encouraging tone. Do NOT provide direct fixed/remediated code; instead, offer subtle hints to guide the user toward fixing it themselves.
+                    4. LINE NUMBER ACCURACY: Before reporting "target_line", carefully trace the exact line number of the vulnerable function/statement in the provided code snippet. Double-check your line counting to ensure maximum precision.
+                    
+                    STRICT OUTPUT RULE:
+                    When vulnerability_found is true, you are strictly FORBIDDEN from returning empty objects `{{}}` or empty strings for payload fields (`data`, `params`, `headers`). You MUST provide the exact attack payload inside `data` (for POST) or `params` (for GET). Leaving them empty when a vulnerability exists is a failure.
                     
                     CRITICAL RULE FOR EXPLOIT_REQUEST:
                     Whenever vulnerability_found is true, you MUST populate either data, params, or json_body with a concrete exploit payload that triggers the vulnerability (e.g. ' OR '1'='1).
@@ -64,12 +68,13 @@ class AIConfigurations:
                     "properties": {
                         "path": {"type": "string", "description": "The HTTP endpoint path, e.g., /login-vulnerable"},
                         "method": {"type": "string", "description": "HTTP Method in uppercase: POST, GET, PUT, DELETE"},
-                        "headers": {"type": "string", "description": "HTTP request headers as an object"},
-                        "params": {"type": "string", "description": "URL Query parameters as an object"},
-                        "data": {"type": "string", "description": "Form payload as an object"},
-                        "json_body": {"type": "string", "description": "JSON body payload as an object"}
+                        "headers": {"type": "string", "description": "JSON string of headers or empty string"},
+                        "params": {"type": "string", "description": "URL query string or empty string"},
+                        "data": {"type": "string",
+                                 "description": "Form payload string, e.g. username=admin&password=123, or empty string"},
+                        "json_body": {"type": "string", "description": "JSON body string or empty string"}
                     },
-                    "required": ["path", "method", "headers", "params", "data", "json_body"]
+                    "required": ["path", "method"]
                 }
             },
             "required": ["vulnerability_found", "target_line", "explanation", "exploit_request"]

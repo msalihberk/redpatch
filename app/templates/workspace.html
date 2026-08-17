@@ -565,12 +565,14 @@
             const content = document.getElementById('ai-modal-content');
 
             if (analysis.target_line && analysis.target_line > 0) {
+                const startLine = Math.max(1, analysis.target_line - 1);
+                const endLine = analysis.target_line + 1;
                 aiDecorations = monacoEditor.deltaDecorations(aiDecorations, [
                     {
-                        range: new monaco.Range(analysis.target_line, 1, analysis.target_line, 1),
+                        range: new monaco.Range(startLine, 1, endLine, 1),
                         options: {
                             isWholeLine: true,
-                            className: 'bg-red-900/40 border-l-4 border-red-500',
+                            className: 'bg-red-900/30 border-l-4 border-red-500',
                             glyphMarginClassName: 'fa-solid fa-bug text-red-500'
                         }
                     }
