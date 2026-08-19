@@ -2,6 +2,6 @@
 *.env
 .idea/
 .venv/
-__pycache__/
+**/__pycache__/
 *.pyc
 app/labs/archives/

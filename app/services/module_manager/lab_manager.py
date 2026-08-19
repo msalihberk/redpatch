@@ -1,6 +1,9 @@
 import json
 import os
 import subprocess
+import io
+import shutil
+import tarfile
 from pathlib import Path
 from app.core.config import Settings
 import requests
@@ -55,6 +58,43 @@ class LabManager:
 
     def archive_path(self, lab: dict) -> Path:
         return self.ensure_archive_dir() / f"{lab['id']}.tar.gz"
+
+    def workspace_source_path(self, lab: dict) -> Path:
+        return self.ensure_archive_dir() / "workspaces" / lab["id"]
+
+    def extract_lab_workspace(self, lab: dict) -> Path:
+        """Extract the image package's /app source tree once for DockerService workspaces."""
+        destination = self.workspace_source_path(lab)
+        if (destination / "main.py").is_file():
+            return destination
+
+        temporary = destination.with_name(f"{destination.name}.part")
+        shutil.rmtree(temporary, ignore_errors=True)
+        try:
+            import docker
+            container = docker.from_env().containers.create(lab["image_tag"])
+            try:
+                stream, _ = container.get_archive("/app")
+                archive_data = b"".join(stream)
+            finally:
+                container.remove(force=True)
+
+            with tarfile.open(fileobj=io.BytesIO(archive_data)) as tar:
+                tar.extractall(temporary, filter="data")
+            extracted_app = temporary / "app"
+            if not (extracted_app / "main.py").is_file():
+                raise RuntimeError("The lab image does not contain an /app/main.py workspace.")
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.rmtree(destination, ignore_errors=True)
+            extracted_app.replace(destination)
+        except (OSError, tarfile.TarError, Exception) as exc:
+            shutil.rmtree(temporary, ignore_errors=True)
+            if isinstance(exc, RuntimeError):
+                raise
+            raise RuntimeError(f"Lab workspace extraction failed: {exc}") from exc
+        finally:
+            shutil.rmtree(temporary, ignore_errors=True)
+        return destination
 
     def download_lab(self, module: str, lab_id: str) -> tuple[dict, Path, bool]:
         """Stream a package once into the local cache; never retain partial files."""
@@ -155,11 +195,13 @@ class LabManager:
 
     def get_workspace_files(self, module_name, submodule_name, workspace_path=None):
         """Return editable files, hints, and configured solutions for one submodule."""
-        if not self.is_submodule_exist(submodule_name, module_name):
+        lab = self.get_lab_info(module_name, submodule_name)
+        if not lab:
             return None
 
-        entry = self.get_submodule_entry(submodule_name)
-        source_path = Path(entry["submodule_folder"])
+        source_path = self.workspace_source_path(lab)
+        if not source_path.is_dir():
+            return {"vulnerables": {}, "solutions": {}, "hints": {}}
         active_path = Path(workspace_path) if workspace_path else source_path
         config = self._load_json(source_path / "config.json")
         configured_hints = config.get("hints", {})
@@ -170,24 +212,21 @@ class LabManager:
             configured_solutions = {}
 
         vulnerables, hints, solutions = {}, {}, {}
-        for filename, kind in entry["codes"].items():
-            entry_type = kind.get("type", "") if isinstance(kind, dict) else kind
-            if str(entry_type).lower() not in {"vulnerable", "vulnerables", "vuln"}:
+        for source_file in source_path.rglob("*.py"):
+            relative_path = source_file.relative_to(source_path)
+            if "__pycache__" in relative_path.parts or "solutions" in relative_path.parts:
                 continue
-
-            relative_path = self._relative_file_path(source_path, filename)
-            if relative_path is None:
-                continue
+            filename = relative_path.as_posix()
             active_file = active_path / relative_path
             vulnerables[filename] = self._read_file(
                 active_file if active_file.is_file() else source_path / relative_path
             )
 
-            file_hints = configured_hints.get(filename, [])
+            file_hints = configured_hints.get(relative_path.name, configured_hints.get(filename, []))
             if isinstance(file_hints, list):
                 hints[filename] = [hint for hint in file_hints if isinstance(hint, str)]
 
-            solution_path = configured_solutions.get(filename)
+            solution_path = configured_solutions.get(relative_path.name, configured_solutions.get(filename))
             if not isinstance(solution_path, str) or not solution_path:
                 continue
             candidate = (source_path / solution_path).resolve()

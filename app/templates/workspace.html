@@ -164,7 +164,7 @@
 
                     <div id="loading-spinner" class="hidden flex-col items-center gap-3 mt-2">
                         <i class="fa-solid fa-circle-notch fa-spin text-2xl text-emerald-400"></i>
-                        <span id="loading-message" class="text-xs font-mono text-slate-400">İndiriliyor...</span>
+                        <span id="loading-message" class="text-xs font-mono text-slate-400">Downloading...</span>
                     </div>
                 </div>
 
@@ -474,20 +474,20 @@
             spinner.classList.add('flex');
 
             try {
-                loadingMessage.innerText = 'İndiriliyor...';
+                loadingMessage.innerText = 'Downloading...';
                 const launchRequest = fetch(launchUrl, { method: 'POST' });
                 // The response is intentionally delayed until Docker has loaded the archive.
                 // Keep the state explicit while that work is running.
-                setTimeout(() => { loadingMessage.innerText = 'Hazırlanıyor... Docker imajı yükleniyor.'; }, 700);
+                setTimeout(() => { loadingMessage.innerText = 'Preparing... Loading the Docker image.'; }, 700);
                 const launchResponse = await launchRequest;
                 const launchData = await launchResponse.json();
                 if (!launchResponse.ok) throw new Error(launchData.detail || 'Lab could not be prepared.');
-                loadingMessage.innerText = 'Hazırlanıyor... Konteyner başlatılıyor.';
+                loadingMessage.innerText = 'Preparing... Starting the container.';
             } catch (error) {
                 spinner.classList.remove('flex');
                 spinner.classList.add('hidden');
                 startBtn.classList.remove('hidden');
-                alert(error.message || 'Lab başlatılamadı.');
+                alert(error.message || 'The lab could not be started.');
                 return;
             }
 

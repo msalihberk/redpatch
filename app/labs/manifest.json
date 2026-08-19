@@ -9,7 +9,7 @@
           "description": "This laboratory examines the authentication bypass vulnerability caused by adding user inputs directly into SQL queries.",
           "category": "web",
           "image_tag": "redpatch-lab/sqli-0:v1.0.0",
-          "port": 8081,
+          "port": 5000,
           "dev_path": "./labs/sqli-0",
           "download_url": "http://localhost:4444/sqli-0.tar"
         }

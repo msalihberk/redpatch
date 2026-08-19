@@ -188,6 +188,22 @@ async def launch_lab(request: Request, module: str, lab_id: str):
     return {"status": "success", "downloaded": downloaded, "loaded": loaded, "port": port}
 
 
+@app.post("/api/labs/{module}/{lab_id}/download")
+async def download_lab(module: str, lab_id: str):
+    """Cache the archive only; image loading and container startup remain explicit actions."""
+    get_manifest_lab(module, lab_id)
+    try:
+        _, _, downloaded = await run_in_threadpool(LabManager().download_lab, module, lab_id)
+    except RuntimeError as exc:
+        logger.warning("Lab download failed for %s/%s: %s", module, lab_id, exc)
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {
+        "status": "success",
+        "downloaded": downloaded,
+        "message": "Lab archive downloaded." if downloaded else "Lab archive is already cached.",
+    }
+
+
 @app.post("/api/labs/{module}/{lab_id}/reset")
 async def reset_lab(request: Request, module: str, lab_id: str):
     """Recreate only from the loaded image; never download or load during reset."""

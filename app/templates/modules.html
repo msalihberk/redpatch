@@ -102,7 +102,11 @@
                     </p>
                 </div>
 
-                <div class="pt-4 border-t border-brand-border/60">
+                <div class="pt-4 border-t border-brand-border/60 space-y-2">
+                    <button type="button" data-module="{{ module }}" data-lab-id="{{ sub.id }}" onclick="downloadLab(this)" class="w-full py-2 px-4 rounded bg-slate-800 hover:bg-slate-700 border border-brand-border text-slate-300 text-xs font-mono font-semibold transition-all flex items-center justify-between">
+                        <span>Download Lab Archive</span>
+                        <i class="fa-solid fa-download text-xs"></i>
+                    </button>
                     <a href="{{ url_for('workspace') }}?module={{ module }}&submodule={{ sub.id }}{% if mode %}&mode={{ mode }}{% endif %}" class="w-full py-2.5 px-4 rounded bg-red-600/10 hover:bg-red-600/20 border border-red-500/30 hover:border-red-500/60 text-red-400 text-xs font-mono font-semibold transition-all flex items-center justify-between group/btn">
                         <span>Launch Lab Vector</span>
                         <i class="fa-solid fa-terminal text-xs group-hover/btn:translate-x-1 transition-transform"></i>
@@ -183,6 +187,30 @@
             </div>
         </div>
     </footer>
+
+    <script>
+        async function downloadLab(button) {
+            const { module, labId } = button.dataset;
+            const original = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>Downloading...</span>';
+            try {
+                const response = await fetch(
+                    `/api/labs/${encodeURIComponent(module)}/${encodeURIComponent(labId)}/download`,
+                    { method: 'POST' }
+                );
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.detail || 'Download failed.');
+                button.innerHTML = '<i class="fa-solid fa-check"></i><span>Archive Cached</span>';
+            } catch (error) {
+                button.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i><span>Download Failed</span>';
+                alert(error.message || 'The lab archive could not be downloaded.');
+                setTimeout(() => { button.innerHTML = original; button.disabled = false; }, 1800);
+                return;
+            }
+            button.disabled = false;
+        }
+    </script>
 
 </body>
 </html>
