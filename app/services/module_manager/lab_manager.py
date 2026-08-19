@@ -206,27 +206,39 @@ class LabManager:
         config = self._load_json(source_path / "config.json")
         configured_hints = config.get("hints", {})
         configured_solutions = config.get("solutions", {})
+        configured_targets = config.get("targets", {})
         if not isinstance(configured_hints, dict):
             configured_hints = {}
         if not isinstance(configured_solutions, dict):
             configured_solutions = {}
+        if not isinstance(configured_targets, dict):
+            configured_targets = {}
 
-        vulnerables, hints, solutions = {}, {}, {}
-        for source_file in source_path.rglob("*.py"):
-            relative_path = source_file.relative_to(source_path)
-            if "__pycache__" in relative_path.parts or "solutions" in relative_path.parts:
+        vulnerables, hints, solutions, target_paths = {}, {}, {}, {}
+        for filename, configured_path in configured_targets.items():
+            if not isinstance(filename, str) or not isinstance(configured_path, str):
                 continue
-            filename = relative_path.as_posix()
+            relative_path = Path(configured_path)
+            if relative_path.is_absolute() or ".." in relative_path.parts:
+                continue
+            source_file = (source_path / relative_path).resolve()
+            try:
+                source_file.relative_to(source_path.resolve())
+            except ValueError:
+                continue
+            if not source_file.is_file():
+                continue
+            target_paths[filename] = relative_path.as_posix()
             active_file = active_path / relative_path
             vulnerables[filename] = self._read_file(
-                active_file if active_file.is_file() else source_path / relative_path
+                active_file if active_file.is_file() else source_file
             )
 
-            file_hints = configured_hints.get(relative_path.name, configured_hints.get(filename, []))
+            file_hints = configured_hints.get(filename, [])
             if isinstance(file_hints, list):
                 hints[filename] = [hint for hint in file_hints if isinstance(hint, str)]
 
-            solution_path = configured_solutions.get(relative_path.name, configured_solutions.get(filename))
+            solution_path = configured_solutions.get(filename)
             if not isinstance(solution_path, str) or not solution_path:
                 continue
             candidate = (source_path / solution_path).resolve()
@@ -237,5 +249,10 @@ class LabManager:
             if candidate.is_file():
                 solutions[filename] = self._read_file(candidate)
 
-        return {"vulnerables": vulnerables, "solutions": solutions, "hints": hints}
+        return {
+            "vulnerables": vulnerables,
+            "solutions": solutions,
+            "hints": hints,
+            "target_paths": target_paths,
+        }
 

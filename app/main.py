@@ -105,15 +105,6 @@ async def contributing_guide(request: Request):
 
 @app.get("/modules", response_class=HTMLResponse)
 async def get_modules(request: Request, action: str = None, module: str = None, mode: str = None):
-    # module_mngr = ModuleManager()
-    # if not module and action == "submodules":
-    #     raise HTTPException(status_code=404, detail="Module not found")
-    # if not module_mngr.is_module_exist(module) and action == "submodules":
-    #     raise HTTPException(status_code=404, detail="Module not exist")
-    # submodules = [
-    #     sub for sub in module_mngr.get_submodule_entries()
-    #     if sub and sub.get("main") == module
-    # ]
     lab_mngr = LabManager()
     if action == "submodules" and not lab_mngr.is_module_exist(module):
         raise HTTPException(status_code=404, detail="Module not found in manifest")
@@ -179,7 +170,7 @@ async def ai_analysis(payload: AIAnalysisRequest):
 
 @app.post("/api/labs/{module}/{lab_id}/launch")
 async def launch_lab(request: Request, module: str, lab_id: str):
-    """Manifest -> cache -> docker load -> existing Docker Manager."""
+    """Manifest -> archive -> docker load -> existing Docker Manager."""
     lab = get_manifest_lab(module, lab_id)
     manager = LabManager()
     try:
@@ -343,16 +334,16 @@ async def workspace_patch(request: Request, payload: PatchRequest):
         raise HTTPException(status_code=409, detail="Lab workspace is not prepared yet. Launch the lab first.")
 
     docker_service = manifest_docker_service(lab, session_id, source_path)
-    allowed_filenames = set(
-        manager.get_workspace_files(payload.module, payload.submodule).get("vulnerables", {}).keys()
-    )
+    workspace_files = manager.get_workspace_files(payload.module, payload.submodule)
+    target_paths = workspace_files.get("target_paths", {})
+    allowed_filenames = set(target_paths)
     if payload.filename not in allowed_filenames:
         raise HTTPException(
             status_code=400,
             detail=f"Target file '{payload.filename}' is not allowed to be modified.",
         )
 
-    patched = docker_service.patch_code(payload.filename, payload.code)
+    patched = docker_service.patch_code(target_paths[payload.filename], payload.code)
 
     if not patched:
         raise HTTPException(

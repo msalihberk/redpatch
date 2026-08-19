@@ -6,6 +6,9 @@
     ]
   },
   "solutions": {
-    "target_snippet.py": "codes/solutions/solution_snippet.py"
+    "solution_snippet.py": "codes/solutions/solution_snippet.py"
+  },
+  "targets": {
+    "target_snippet.py": "codes/vulnerables/target_snippet.py"
   }
 }
