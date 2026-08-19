@@ -164,7 +164,7 @@
 
                     <div id="loading-spinner" class="hidden flex-col items-center gap-3 mt-2">
                         <i class="fa-solid fa-circle-notch fa-spin text-2xl text-emerald-400"></i>
-                        <span class="text-xs font-mono text-slate-400">Provisioning environment & launching target...</span>
+                        <span id="loading-message" class="text-xs font-mono text-slate-400">İndiriliyor...</span>
                     </div>
                 </div>
 
@@ -210,6 +210,8 @@
         const currentSubmodule = "{{ submodule }}";
         const currentMode = "{{ mode }}";
         const targetProxyUrl = `/proxy/${currentModule}/${currentSubmodule}`;
+        const launchUrl = `/api/labs/${encodeURIComponent(currentModule)}/${encodeURIComponent(currentSubmodule)}/launch`;
+        const resetUrl = `/api/labs/${encodeURIComponent(currentModule)}/${encodeURIComponent(currentSubmodule)}/reset`;
 
         const rawFilesData = JSON.parse(document.getElementById('files-data').textContent || '{}') || {};
 
@@ -465,10 +467,29 @@
             const iframe = document.getElementById('target-canvas');
             const statusIndicator = document.getElementById('status-indicator');
             const statusText = document.getElementById('status-text');
+            const loadingMessage = document.getElementById('loading-message');
 
             startBtn.classList.add('hidden');
             spinner.classList.remove('hidden');
             spinner.classList.add('flex');
+
+            try {
+                loadingMessage.innerText = 'İndiriliyor...';
+                const launchRequest = fetch(launchUrl, { method: 'POST' });
+                // The response is intentionally delayed until Docker has loaded the archive.
+                // Keep the state explicit while that work is running.
+                setTimeout(() => { loadingMessage.innerText = 'Hazırlanıyor... Docker imajı yükleniyor.'; }, 700);
+                const launchResponse = await launchRequest;
+                const launchData = await launchResponse.json();
+                if (!launchResponse.ok) throw new Error(launchData.detail || 'Lab could not be prepared.');
+                loadingMessage.innerText = 'Hazırlanıyor... Konteyner başlatılıyor.';
+            } catch (error) {
+                spinner.classList.remove('flex');
+                spinner.classList.add('hidden');
+                startBtn.classList.remove('hidden');
+                alert(error.message || 'Lab başlatılamadı.');
+                return;
+            }
 
             let attempts = 0;
             const maxAttempts = 15;
@@ -783,7 +804,7 @@
             if (!confirm("Are you sure you want to reset this lab session? Unsaved changes will be lost.")) return;
 
             try {
-                const res = await fetch(`/api/workspace/reset?module=${encodeURIComponent(currentModule)}&submodule=${encodeURIComponent(currentSubmodule)}`, {
+                const res = await fetch(resetUrl, {
                     method: 'POST'
                 });
 
@@ -793,7 +814,10 @@
                     const data = await res.json();
 
                     if (res.ok && data.status === "success") {
-                        location.reload();
+                        document.getElementById('target-canvas').src = targetProxyUrl;
+                        document.getElementById('canvas-overlay').classList.add('hidden');
+                        document.getElementById('status-indicator').className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
+                        document.getElementById('status-text').innerText = "CONTAINER ACTIVE";
                     } else {
                         alert("Failed to reset lab: " + (data.detail || data.message || "Unknown error"));
                     }

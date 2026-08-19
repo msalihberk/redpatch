@@ -9,6 +9,7 @@ from fastapi import FastAPI, Request, Response, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
 
 from app.services.ai.ai_agent import RedTeamAgent
 from app.services.container_services.docker import DockerService
@@ -59,6 +60,26 @@ async def ensure_session_cookie(request: Request, call_next):
 def get_session_id(request: Request) -> str:
     return getattr(request.state, "session_id", request.cookies.get("session_id", "default"))
 
+
+def get_manifest_lab(module: str, lab_id: str) -> dict:
+    lab = LabManager().get_lab_info(module, lab_id)
+    if not lab:
+        raise HTTPException(status_code=404, detail="Lab not found in manifest")
+    try:
+        lab["port"] = int(lab["port"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise HTTPException(status_code=500, detail="Lab manifest has an invalid port") from exc
+    if not lab.get("image_tag") or not lab.get("download_url"):
+        raise HTTPException(status_code=500, detail="Lab manifest is incomplete")
+    return lab
+
+
+def manifest_docker_service(lab: dict, session_id: str) -> DockerService:
+    return DockerService(
+        port=lab["port"], path=None, entrypoint=None, runtime=lab["image_tag"],
+        container_name=f"redpatch_{lab['module']}_{lab['id']}", session_id=session_id,
+    )
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     if request.url.path.startswith("/api/"):
@@ -94,29 +115,24 @@ async def get_modules(request: Request, action: str = None, module: str = None, 
     #     if sub and sub.get("main") == module
     # ]
     lab_mngr = LabManager()
+    if action == "submodules" and not lab_mngr.is_module_exist(module):
+        raise HTTPException(status_code=404, detail="Module not found in manifest")
     submodules = lab_mngr.get_submodules(module) if action == "submodules" else None
     return templates.TemplateResponse(request, "modules.html", {"modules": lab_mngr.list_modules(), "mode": mode, "module": module, "action": action, "submodules": submodules})
 
+
+@app.get("/api/labs/manifest")
+async def labs_manifest():
+    """Expose the manifest-backed lab catalogue without local implementation paths."""
+    manager = LabManager()
+    return {"labs": manager.modules}
+
 @app.get("/workspace", response_class=HTMLResponse)
 async def workspace(request: Request, module: str = None, submodule: str = None, mode: str = None):
-    module_mngr = ModuleManager()
     if not module or not submodule:
         raise HTTPException(status_code=404, detail="Module or submodule not specified")
-
-    if not module_mngr.is_module_exist(module) or not module_mngr.is_submodule_exist(submodule, module):
-        raise HTTPException(status_code=404, detail="Submodule not found")
-
-    sub_entry = module_mngr.get_submodule_entry(submodule)
-    runtime = sub_entry.get("runtime")
-    entrypoint = sub_entry.get("entrypoint")
-    internal_port = sub_entry.get("internal_port")
-    path = sub_entry["submodule_folder"]
-    if not runtime or not entrypoint or not internal_port or not os.path.exists(path):
-        raise HTTPException(status_code=404, detail="Submodule configuration is incomplete")
-    session_id = get_session_id(request)
-    tmp_workdir = DockerService.get_work_dir_for(session_id, path)
-    files_bundle = module_mngr.get_workspace_files(module, submodule, tmp_workdir)
-    return templates.TemplateResponse(request, "workspace.html", {"module": module, "submodule": submodule, "mode": mode, "codes": files_bundle})
+    get_manifest_lab(module, submodule)
+    return templates.TemplateResponse(request, "workspace.html", {"module": module, "submodule": submodule, "mode": mode, "codes": {}})
 
 @app.post("/api/workspace/ai-analysis")
 async def ai_analysis(payload: AIAnalysisRequest):
@@ -157,66 +173,57 @@ async def ai_analysis(payload: AIAnalysisRequest):
     )
 
 
+@app.post("/api/labs/{module}/{lab_id}/launch")
+async def launch_lab(request: Request, module: str, lab_id: str):
+    """Manifest -> cache -> docker load -> existing Docker Manager."""
+    lab = get_manifest_lab(module, lab_id)
+    manager = LabManager()
+    try:
+        _, archive, downloaded = await run_in_threadpool(manager.download_lab, module, lab_id)
+        loaded = await run_in_threadpool(manager.load_lab_image, lab, archive)
+        port = await run_in_threadpool(manifest_docker_service(lab, get_session_id(request)).start)
+    except RuntimeError as exc:
+        logger.warning("Lab launch failed for %s/%s: %s", module, lab_id, exc)
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {"status": "success", "downloaded": downloaded, "loaded": loaded, "port": port}
+
+
+@app.post("/api/labs/{module}/{lab_id}/reset")
+async def reset_lab(request: Request, module: str, lab_id: str):
+    """Recreate only from the loaded image; never download or load during reset."""
+    lab = get_manifest_lab(module, lab_id)
+    if not await run_in_threadpool(LabManager.is_image_loaded, lab["image_tag"]):
+        raise HTTPException(status_code=409, detail="Lab image is not loaded yet. Launch the lab first.")
+    try:
+        port = await run_in_threadpool(manifest_docker_service(lab, get_session_id(request)).reset_lab)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {"status": "success", "message": f"Lab '{lab_id}' reset successfully.", "port": port}
+
+
 @app.api_route("/api/workspace/reset", methods=["POST"])
 async def workspace_reset(request: Request, module: str = None, submodule: str = None):
-    module_mngr = ModuleManager()
     if not module or not submodule:
         raise HTTPException(status_code=404, detail="Module or submodule not specified")
-
-    if not module_mngr.is_module_exist(module) or not module_mngr.is_submodule_exist(submodule, module):
-        raise HTTPException(status_code=404, detail="Module or submodule not found")
-
-    sub_entry = module_mngr.get_submodule_entry(submodule)
-    runtime = sub_entry.get("runtime")
-    entrypoint = sub_entry.get("entrypoint")
-    internal_port = sub_entry.get("internal_port")
-    path = sub_entry["submodule_folder"]
-    if not runtime or not entrypoint or not internal_port or not os.path.exists(path):
-        raise HTTPException(status_code=404, detail="Submodule configuration is incomplete")
-
-    docker_service = DockerService(internal_port, path, entrypoint, runtime, f"redpatch_{module}_{submodule}", get_session_id(request))
-    docker_service.set_exist()
-    docker_service.remove_workspace()
-    docker_service.stop()
-
-    return JSONResponse(
-        status_code=200,
-        content={
-            "status": "success",
-            "message": f"Lab '{submodule}' reset successfully."
-        }
-    )
+    return await reset_lab(request, module, submodule)
 @app.api_route("/proxy/{module}/{submodule}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 @app.api_route("/proxy/{module}/{submodule}/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 async def proxy_submodule(module: str, submodule: str, request: Request, path: str = ""):
-    module_mngr = ModuleManager()
-    if not module or not submodule:
-        raise HTTPException(status_code=404, detail="Module or submodule not specified")
-
-    if not module_mngr.is_module_exist(module) or not module_mngr.is_submodule_exist(submodule, module):
-        raise HTTPException(status_code=404, detail="Submodule not found")
-
-    sub_entry = module_mngr.get_submodule_entry(submodule)
-    runtime = sub_entry.get("runtime")
-    entrypoint = sub_entry.get("entrypoint")
-    internal_port = sub_entry.get("internal_port")
-    pth = sub_entry["submodule_folder"]
-    if not runtime or not entrypoint or not internal_port or not os.path.exists(pth):
-        raise HTTPException(status_code=404, detail="Submodule configuration is incomplete")
-    docker_service = DockerService(internal_port, pth, entrypoint, runtime, f"redpatch_{module}_{submodule}", get_session_id(request))
-    container_port = docker_service.start()
+    lab = get_manifest_lab(module, submodule)
+    internal_port = lab["port"]
+    container_name = f"redpatch_{module}_{submodule}"
+    container_port = DockerService.get_container_port(container_name, internal_port)
 
     if not container_port:
         raise HTTPException(
-            status_code=503,
-            detail=f"'{submodule}' No active port was found. The container may not have started. "
+            status_code=409,
+            detail=f"'{submodule}' is not active. Launch it through the manifest endpoint first."
         )
 
     requested_method = request.query_params.get("_redpatch_method", request.method).upper()
     if requested_method not in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
         raise HTTPException(status_code=405, detail="Unsupported proxy request method")
 
-    container_name = f"redpatch_{module}_{submodule}"
     if DockerHelper.is_running_in_docker():
         target_url = f"http://{container_name}:{internal_port}/{path}"
     else:

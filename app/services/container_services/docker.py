@@ -11,15 +11,15 @@ class DockerService:
     def __init__(
         self,
         port: int,
-        path: str,
-        entrypoint: str,
+        path: str | None,
+        entrypoint: str | None,
         runtime: str,
         container_name: str | None = None,
         session_id: str | None = None,
     ):
         self.client = docker.from_env()
         self.internal_port = port
-        self.original_path = pathlib.Path(path).resolve()
+        self.original_path = pathlib.Path(path).resolve() if path else None
         self.entrypoint = entrypoint
         self.runtime = runtime
         self.session_id = session_id or "default"
@@ -30,7 +30,8 @@ class DockerService:
         )
 
         base_tmp = pathlib.Path("/app/sessions") if DockerHelper.is_running_in_docker() else pathlib.Path(tempfile.gettempdir())
-        self.work_dir = base_tmp / f"redpatch_sessions" / f"{self.session_id}_{self.original_path.name}"
+        workspace_name = self.original_path.name if self.original_path else self.container_name
+        self.work_dir = base_tmp / f"redpatch_sessions" / f"{self.session_id}_{workspace_name}"
 
         self.container = None
         self.mapped_host_port = None
@@ -63,6 +64,8 @@ class DockerService:
 
     def _prepare_workspace(self, force_reset: bool = False) -> None:
         """Copies the original source code to the isolated temporary workspace."""
+        if not self.original_path:
+            return
         if force_reset and self.work_dir.exists():
             shutil.rmtree(self.work_dir)
 
@@ -94,12 +97,24 @@ class DockerService:
 
         self._prepare_workspace(force_reset=force_reset)
 
+        # Manifest images are self-contained packages loaded with `docker load`.
+        # Do not replace their command or filesystem with a development workspace.
+        if not self.original_path:
+            self.container = self.client.containers.run(
+                image=self.runtime,
+                name=self.container_name,
+                ports={f"{self.internal_port}/tcp": None},
+                detach=True,
+                network="redpatch_net" if DockerHelper.is_running_in_docker() else None,
+            )
+            self.mapped_host_port = self._resolve_mapped_port()
+            return self.mapped_host_port
+
         module_name = self.entrypoint.replace(".py", "")
         container_work_dir = f"/app/sessions/redpatch_sessions/{self.session_id}_{self.original_path.name}"
         if DockerHelper.is_running_in_docker():
             start_command = (
                 f"sh -c 'cd {container_work_dir} && "
-                f"if [ -f requirements.txt ]; then pip install --no-cache-dir -r requirements.txt; fi && "
                 f"exec uvicorn {module_name}:app --host 0.0.0.0 --port {self.internal_port} --reload'"
             )
 
@@ -121,7 +136,6 @@ class DockerService:
 
         else:
             start_command = (
-                f"sh -c 'if [ -f /app/requirements.txt ]; then pip install --no-cache-dir -r /app/requirements.txt; fi && "
                 f"exec uvicorn {module_name}:app --host 0.0.0.0 --port {self.internal_port} --reload'"
             )
 

@@ -1,11 +1,12 @@
 import json
 import os
+import subprocess
 from pathlib import Path
 from app.core.config import Settings
 import requests
 
 class LabManager:
-    def __init__(self, labs_dir:str="labs", manifest_file:str = "official_manifest.json"):
+    def __init__(self, labs_dir:str="labs", manifest_file:str = "manifest.json"):
         self.labs_directory = self.get_labs_path(labs_dir)
         self.manifest = manifest_file
         self.modules = {}
@@ -38,74 +39,102 @@ class LabManager:
         return matches[0].relative_to(base_path)
 
     @staticmethod
-    def ensure_archive_dir():
-        if not os.path.exists(Settings.ARCHIVE_DIR):
-            os.makedirs(Settings.ARCHIVE_DIR)
+    def ensure_archive_dir() -> Path:
+        archive_dir = Path(Settings.ARCHIVE_DIR)
+        archive_dir.mkdir(parents=True, exist_ok=True)
+        return archive_dir
 
-    def get_lab_info(self, module:str, id:str):
-        for lab in self.modules[module]["submodules"]:
-            if lab["id"] == id:
-                return lab
+    def get_lab_info(self, module: str, lab_id: str):
+        module_entry = self.modules.get(module)
+        if not module_entry:
+            return None
+        for lab in module_entry.get("submodules", []):
+            if lab.get("id") == lab_id:
+                return {**lab, "module": module}
         return None
 
-    def download_lab(self, module:str, id:str):
-        LabManager.ensure_archive_dir()
-        lab = self.get_lab_info(module, id)
+    def archive_path(self, lab: dict) -> Path:
+        return self.ensure_archive_dir() / f"{lab['id']}.tar.gz"
 
-        tar_path = os.path.join(Settings.ARCHIVE_DIR, f"{lab['id']}.tar.gz")
-        image_tag = lab["image_tag"]
-        download_url = lab["download_url"]
+    def download_lab(self, module: str, lab_id: str) -> tuple[dict, Path, bool]:
+        """Stream a package once into the local cache; never retain partial files."""
+        lab = self.get_lab_info(module, lab_id)
+        if not lab:
+            raise ValueError("Lab not found in manifest")
+        archive = self.archive_path(lab)
+        if archive.is_file() and archive.stat().st_size > 0:
+            return lab, archive, False
 
-        if not os.path.exists(tar_path):
-            print(f"[+] Lab downloading... : {download_url}")
-            response = requests.get(download_url, stream=True)
+        temporary = archive.with_suffix(".part")
+        temporary.unlink(missing_ok=True)
+        try:
+            with requests.get(lab["download_url"], stream=True, timeout=(10, 300)) as response:
+                response.raise_for_status()
+                with temporary.open("wb") as file:
+                    for chunk in response.iter_content(chunk_size=1024 * 1024):
+                        if chunk:
+                            file.write(chunk)
+            temporary.replace(archive)
+        except requests.RequestException as exc:
+            temporary.unlink(missing_ok=True)
+            raise RuntimeError(f"Lab archive download failed: {exc}") from exc
+        return lab, archive, True
 
-            if response.status_code == 200:
-                with open(tar_path, "wb") as f:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        f.write(chunk)
-                print(f"[✔] Lab saved : {tar_path}")
-            else:
-                raise Exception(f"Error, HTTP Code : {response.status_code}")
-        else:
-            print(f"[+] Lab is already exist : {tar_path}")
+    @staticmethod
+    def is_image_loaded(image_tag: str) -> bool:
+        import docker
+        try:
+            docker.from_env().images.get(image_tag)
+            return True
+        except Exception:
+            return False
 
-        print(f"[+] Docker load...")
-        # TODO: Add docker logic
-        # with open(tar_path, "rb") as f:
-        #     client.images.load(f.read())
-
-        print(f"[✔] The image has been successfully transferred to Docker : {image_tag}")
+    def load_lab_image(self, lab: dict, archive: Path) -> bool:
+        """Load the cached tar.gz through the Docker CLI (which supports gzip input)."""
+        if self.is_image_loaded(lab["image_tag"]):
+            return False
+        try:
+            result = subprocess.run(
+                ["docker", "load", "--input", str(archive)],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=600,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise RuntimeError(f"Docker image load failed: {exc}") from exc
+        if not self.is_image_loaded(lab["image_tag"]):
+            raise RuntimeError(
+                f"Docker loaded the archive but manifest image '{lab['image_tag']}' was not found. "
+                f"Docker output: {result.stdout.strip() or result.stderr.strip()}"
+            )
+        return True
 
 
 
 
 
     def is_module_exist(self, module_name):
-        return bool(module_name) and module_name.strip().upper() in self._module_index
+        return bool(module_name) and module_name in self.modules
 
     def is_submodule_exist(self, submodule_name, module_name=None):
-        if not submodule_name:
-            return False
-        entry = self._submodule_index.get(submodule_name.strip().upper())
-        return bool(entry) and (not module_name or entry["main"] == module_name.strip().upper())
+        return bool(module_name and self.get_lab_info(module_name, submodule_name))
 
     def discover(self):
         self.modules.clear()
         manifest = self._load_json(self.labs_directory / self.manifest)
-        for module in manifest.get("labs", {}):
-            self.modules[module] = manifest.get("labs", {})[module]
-
-        print(self.modules)
+        for module, entry in manifest.get("labs", {}).items():
+            if isinstance(entry, dict) and isinstance(entry.get("submodules"), list):
+                self.modules[module] = entry
 
     def list_modules(self):
         return sorted((name, entry["description"]) for name, entry in self.modules.items())
 
     def get_submodules(self, main:str):
-        if not self.modules[main]:
+        if main not in self.modules:
             raise ValueError("Invalid module name")
 
-        return self.modules[main]["submodules"]
+        return [{**lab, "module": main} for lab in self.modules[main]["submodules"]]
 
     def get_module_entry(self, module_name):
         if not self.is_module_exist(module_name):
