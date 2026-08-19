@@ -47,7 +47,7 @@
             <div>
                 <label class="block text-xs font-mono text-slate-400 mb-1.5">Username</label>
                 <div class="relative">
-                    <input type="text" id="username" value="admin' OR '1'='1" class="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-red-500 font-mono transition-colors" required />
+                    <input type="text" id="username" name="username" value="admin' OR '1'='1" class="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-red-500 font-mono transition-colors" required />
                     <i class="fa-solid fa-user absolute left-3 top-3 text-slate-600 text-xs"></i>
                 </div>
             </div>
@@ -55,7 +55,7 @@
             <div>
                 <label class="block text-xs font-mono text-slate-400 mb-1.5">Password</label>
                 <div class="relative">
-                    <input type="password" id="password" value="anything" class="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-red-500 font-mono transition-colors" required />
+                    <input type="password" id="password" name="password" value="anything" class="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-red-500 font-mono transition-colors" required />
                     <i class="fa-solid fa-lock absolute left-3 top-3 text-slate-600 text-xs"></i>
                 </div>
             </div>
@@ -112,23 +112,22 @@
         const queryBox = document.getElementById('queryBox');
         const executedQuery = document.getElementById('executedQuery');
 
-        // Clean endpoint string (remove leading slash if present)
         const cleanEndpoint = endpoint.replace(/^\/+/, '');
 
-        // Ensure the request stays within current submodule scope: /proxy/SQLI/BASIC_SQLI/login-vulnerable
-        // A payload response may render this same page from /login-vulnerable
-        // or /login-fixed. Strip that endpoint so manual retries still target
-        // the lab's proxy root instead of nesting the route repeatedly.
         const currentPath = window.location.pathname
             .replace(/\/(login-vulnerable|login-fixed)\/?$/, '')
             .replace(/\/+$/, '');
         const targetUrl = `${currentPath}/${cleanEndpoint}`;
 
         try {
+            const formData = new URLSearchParams();
+            formData.append('username', username);
+            formData.append('password', password);
+
             const res = await fetch(targetUrl, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData
             });
 
             const data = await res.json();

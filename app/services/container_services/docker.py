@@ -1,10 +1,10 @@
-import os
 import shutil
 import time
 import pathlib
 import tempfile
 import docker
 from docker.errors import NotFound, APIError
+from app.services.container_services.helpers import DockerHelper
 
 
 class DockerService:
@@ -29,7 +29,7 @@ class DockerService:
             or f"redpatch_{entrypoint.replace('.py', '').lower()}"
         )
 
-        base_tmp = pathlib.Path("/app/sessions")
+        base_tmp = pathlib.Path("/app/sessions") if DockerHelper.is_running_in_docker() else pathlib.Path(tempfile.gettempdir())
         self.work_dir = base_tmp / f"redpatch_sessions" / f"{self.session_id}_{self.original_path.name}"
 
         self.container = None
@@ -96,30 +96,54 @@ class DockerService:
 
         module_name = self.entrypoint.replace(".py", "")
         container_work_dir = f"/app/sessions/redpatch_sessions/{self.session_id}_{self.original_path.name}"
+        if DockerHelper.is_running_in_docker():
+            start_command = (
+                f"sh -c 'cd {container_work_dir} && "
+                f"if [ -f requirements.txt ]; then pip install --no-cache-dir -r requirements.txt; fi && "
+                f"exec uvicorn {module_name}:app --host 0.0.0.0 --port {self.internal_port} --reload'"
+            )
 
-        start_command = (
-            f"sh -c 'cd {container_work_dir} && "
-            f"if [ -f requirements.txt ]; then pip install --no-cache-dir -r requirements.txt; fi && "
-            f"exec uvicorn {module_name}:app --host 0.0.0.0 --port {self.internal_port} --reload'"
-        )
+            self.container = self.client.containers.run(
+                image=self.runtime,
+                name=self.container_name,
+                command=start_command,
+                working_dir=container_work_dir,
+                volumes={
+                    'redpatch_lab_tmp': {
+                        'bind': '/app/sessions',
+                        'mode': 'rw'
+                    }
+                },
+                ports={f"{self.internal_port}/tcp": None},
+                detach=True,
+                network="redpatch_net",
+            )
 
-        self.container = self.client.containers.run(
-            image=self.runtime,
-            name=self.container_name,
-            command=start_command,
-            working_dir=container_work_dir,
-            volumes={
-                'redpatch_lab_tmp': {
-                    'bind': '/app/sessions',
-                    'mode': 'rw'
-                }
-            },
-            ports={f"{self.internal_port}/tcp": None},
-            detach=True,
-            network="redpatch_net",
-        )
+        else:
+            start_command = (
+                f"sh -c 'if [ -f /app/requirements.txt ]; then pip install --no-cache-dir -r /app/requirements.txt; fi && "
+                f"exec uvicorn {module_name}:app --host 0.0.0.0 --port {self.internal_port} --reload'"
+            )
+
+            self.container = self.client.containers.run(
+                image=self.runtime,
+                name=self.container_name,
+                command=start_command,
+                working_dir="/app",
+                volumes={
+                    str(self.work_dir.resolve()): {
+                        "bind": "/app",
+                        "mode": "rw",
+                    }
+                },
+                ports={f"{self.internal_port}/tcp": None},
+                detach=True,
+                network_mode="bridge",
+            )
+
         self.mapped_host_port = self._resolve_mapped_port()
         return self.mapped_host_port
+
 
     def reset_lab(self) -> int:
         """Resets the lab environment by stopping the container, purging the temp directory, and restarting."""
@@ -200,7 +224,7 @@ class DockerService:
         except Exception:
             pass
 
-        base_tmp = pathlib.Path("/app/sessions")
+        base_tmp = pathlib.Path("/app/sessions") if DockerHelper.is_running_in_docker() else pathlib.Path(tempfile.gettempdir())
         sessions_dir = base_tmp / "redpatch_sessions"
         if sessions_dir.exists():
             shutil.rmtree(sessions_dir, ignore_errors=True)
@@ -212,6 +236,6 @@ class DockerService:
         This is a helper to allow other components to read session-specific copies
         without instantiating a full DockerService.
         """
-        base_tmp = pathlib.Path("/app/sessions")
+        base_tmp = pathlib.Path("/app/sessions") if DockerHelper.is_running_in_docker() else pathlib.Path(tempfile.gettempdir())
         original_name = pathlib.Path(original_path).resolve().name
         return base_tmp / "redpatch_sessions" / f"{session_id}_{original_name}"

@@ -1,0 +1,19 @@
+{
+  "labs": {
+    "SQLi" : {
+      "description" : "SQL Injection (SQLi) is the manipulation of a database through malicious SQL code injected into user input fields.",
+      "submodules" : [
+        {
+          "id": "sqli-0",
+          "title": "SQL Injection - Authentication Bypass",
+          "description": "This laboratory examines the authentication bypass vulnerability caused by adding user inputs directly into SQL queries.",
+          "category": "web",
+          "image_tag": "redpatch-lab/sqli-0:v1.0.0",
+          "port": 8081,
+          "dev_path": "./labs/sqli-0",
+          "download_url": "https://github.com/msalihberk/redpatch-labs/releases/download/v1.0.0/sqli-0.tar.gz"
+        }
+      ]
+    }
+  }
+}

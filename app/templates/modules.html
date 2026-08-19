@@ -88,17 +88,17 @@
                 <div>
                     <div class="flex items-center justify-between mb-4">
                         <span class="text-[11px] font-mono font-bold text-slate-300 bg-slate-800 px-2.5 py-0.5 rounded border border-brand-border uppercase tracking-wide">
-                            {{ sub.submodule_name }}
+                            {{ sub.title }}
                         </span>
                         <i class="fa-solid fa-bug text-brand-muted group-hover:text-red-500 transition-colors"></i>
                     </div>
 
                     <h2 class="text-lg font-bold text-slate-100 mb-2 group-hover:text-red-400 transition-colors">
-                        {{ sub.submodule_name }}
+                        {{ sub.title }}
                     </h2>
 
                     <p class="text-brand-muted text-xs leading-relaxed mb-6 line-clamp-3">
-                        {{ sub.submodule_description if sub.submodule_description else "No detailed description provided for this specific attack/defense scenario." }}
+                        {{ sub.description if sub.description else "No detailed description provided for this specific attack/defense scenario." }}
                     </p>
                 </div>
 

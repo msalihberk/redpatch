@@ -1,5 +1,7 @@
 FROM python:3.13-slim
 
+ENV IS_DOCKER=true
+
 WORKDIR /app
 
 COPY requirements.txt .

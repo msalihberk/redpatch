@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from app.services.ai.ai_agent import RedTeamAgent
 from app.services.container_services.docker import DockerService
 from app.services.module_manager.manager import ModuleManager
+from app.services.module_manager.lab_manager import LabManager
 from app.services.container_services.helpers import DockerHelper
 
 from pydantic import BaseModel, Field
@@ -83,16 +84,18 @@ async def contributing_guide(request: Request):
 
 @app.get("/modules", response_class=HTMLResponse)
 async def get_modules(request: Request, action: str = None, module: str = None, mode: str = None):
-    module_mngr = ModuleManager()
-    if not module and action == "submodules":
-        raise HTTPException(status_code=404, detail="Module not found")
-    if not module_mngr.is_module_exist(module) and action == "submodules":
-        raise HTTPException(status_code=404, detail="Module not exist")
-    submodules = [
-        sub for sub in module_mngr.get_submodule_entries()
-        if sub and sub.get("main") == module
-    ]
-    return templates.TemplateResponse(request, "modules.html", {"modules": module_mngr.list_modules(), "mode": mode, "module": module, "action": action, "submodules": submodules})
+    # module_mngr = ModuleManager()
+    # if not module and action == "submodules":
+    #     raise HTTPException(status_code=404, detail="Module not found")
+    # if not module_mngr.is_module_exist(module) and action == "submodules":
+    #     raise HTTPException(status_code=404, detail="Module not exist")
+    # submodules = [
+    #     sub for sub in module_mngr.get_submodule_entries()
+    #     if sub and sub.get("main") == module
+    # ]
+    lab_mngr = LabManager()
+    submodules = lab_mngr.get_submodules(module) if action == "submodules" else None
+    return templates.TemplateResponse(request, "modules.html", {"modules": lab_mngr.list_modules(), "mode": mode, "module": module, "action": action, "submodules": submodules})
 
 @app.get("/workspace", response_class=HTMLResponse)
 async def workspace(request: Request, module: str = None, submodule: str = None, mode: str = None):
@@ -217,7 +220,7 @@ async def proxy_submodule(module: str, submodule: str, request: Request, path: s
     if DockerHelper.is_running_in_docker():
         target_url = f"http://{container_name}:{internal_port}/{path}"
     else:
-        target_url = f"http://127.0.0.1:{internal_port}/{path}"
+        target_url = f"http://127.0.0.1:{container_port}/{path}"
 
     control_params = {"_redpatch_method", "_redpatch_headers", "_redpatch_json_body"}
     query_params = [

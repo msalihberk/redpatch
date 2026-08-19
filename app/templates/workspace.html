@@ -604,17 +604,17 @@
                         <h4 class="text-xs font-semibold uppercase text-slate-400 mb-1">Explanation & Tip</h4>
                         <p class="text-slate-300 whitespace-pre-wrap">${escapeHtml(analysis.explanation || 'No explanation available.')}</p>
                     </div>
-
+                    ${analysis.vulnerability_found ? `
                     ${analysis.exploit_request ? `
                         <div class="bg-slate-900/80 p-3 rounded border border-slate-700 text-sm font-mono">
                             <h4 class="text-xs font-semibold uppercase text-amber-400 mb-1">Example Request / Exploit Payload</h4>
                             <pre class="text-amber-200 text-xs overflow-x-auto p-2 bg-slate-950 rounded border border-slate-800">${escapeHtml(JSON.stringify(analysis.exploit_request, null, 2))}</pre>
-                            ${analysis.vulnerability_found ? `
+
                                 <button id="fire-exploit-btn" class="mt-3 bg-red-600 hover:bg-red-500 text-white text-xs px-3 py-2 rounded font-medium transition-colors">
                                     <i class="fa-solid fa-bolt mr-1"></i> Fire Payload in Canvas
                                 </button>
-                            ` : ''}
                         </div>
+                        ` : ''}
                     ` : ''}
                 </div>
             `;
