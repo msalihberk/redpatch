@@ -220,7 +220,12 @@ async def is_downloaded(request: Request, lab_id: str):
     result = LabManager().is_lab_downloaded(lab_id)
     return {"is_downloaded": result}
 
-
+@app.delete("/api/labs/{lab_id}")
+async def delete_lab(request: Request, lab_id: str):
+    try:
+        LabManager().delete_lab_file(lab_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.api_route("/api/workspace/reset", methods=["POST"])
 async def workspace_reset(request: Request, module: str = None, submodule: str = None):
