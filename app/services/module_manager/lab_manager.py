@@ -1,7 +1,6 @@
 import json
-import os
-import subprocess
 import io
+import os
 import shutil
 import tarfile
 from pathlib import Path
@@ -10,12 +9,13 @@ import requests
 
 class LabManager:
     def __init__(self, labs_dir:str="labs", manifest_file:str = "manifest.json"):
-        self.labs_directory = self.get_labs_path(labs_dir)
+        self.labs_directory = LabManager.get_labs_path(labs_dir)
         self.manifest = manifest_file
         self.modules = {}
         self.discover()
 
-    def get_labs_path(self, modules_directory):
+    @staticmethod
+    def get_labs_path(modules_directory):
         return Path(__file__).resolve().parents[2] / modules_directory
 
     @staticmethod
@@ -120,40 +120,6 @@ class LabManager:
             raise RuntimeError(f"Lab archive download failed: {exc}") from exc
         return lab, archive, True
 
-    @staticmethod
-    def is_image_loaded(image_tag: str) -> bool:
-        import docker
-        try:
-            docker.from_env().images.get(image_tag)
-            return True
-        except Exception:
-            return False
-
-    def load_lab_image(self, lab: dict, archive: Path) -> bool:
-        """Load the cached tar.gz through the Docker CLI (which supports gzip input)."""
-        if self.is_image_loaded(lab["image_tag"]):
-            return False
-        try:
-            result = subprocess.run(
-                ["docker", "load", "--input", str(archive)],
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=600,
-            )
-        except (OSError, subprocess.SubprocessError) as exc:
-            raise RuntimeError(f"Docker image load failed: {exc}") from exc
-        if not self.is_image_loaded(lab["image_tag"]):
-            raise RuntimeError(
-                f"Docker loaded the archive but manifest image '{lab['image_tag']}' was not found. "
-                f"Docker output: {result.stdout.strip() or result.stderr.strip()}"
-            )
-        return True
-
-
-
-
-
     def is_module_exist(self, module_name):
         return bool(module_name) and module_name in self.modules
 
@@ -176,23 +142,6 @@ class LabManager:
 
         return [{**lab, "module": main} for lab in self.modules[main]["submodules"]]
 
-    def get_module_entry(self, module_name):
-        if not self.is_module_exist(module_name):
-            return None
-        entry = self._module_index[module_name.strip().upper()]
-        return {**entry}
-
-    def get_submodule_entry(self, submodule_name):
-        if not self.is_submodule_exist(submodule_name):
-            return None
-        return {**self._submodule_index[submodule_name.strip().upper()]}
-
-    def get_module_entries(self):
-        return [self.get_module_entry(name) for name, _ in self.list_modules()]
-
-    def get_submodule_entries(self):
-        return [self.get_submodule_entry(name) for name, _ in self.list_submodules()]
-
     def get_workspace_files(self, module_name, submodule_name, workspace_path=None):
         """Return editable files, hints, and configured solutions for one submodule."""
         lab = self.get_lab_info(module_name, submodule_name)
@@ -202,11 +151,14 @@ class LabManager:
         source_path = self.workspace_source_path(lab)
         if not source_path.is_dir():
             return {"vulnerables": {}, "solutions": {}, "hints": {}}
+
         active_path = Path(workspace_path) if workspace_path else source_path
         config = self._load_json(source_path / "config.json")
+
         configured_hints = config.get("hints", {})
         configured_solutions = config.get("solutions", {})
         configured_targets = config.get("targets", {})
+
         if not isinstance(configured_hints, dict):
             configured_hints = {}
         if not isinstance(configured_solutions, dict):
@@ -215,6 +167,7 @@ class LabManager:
             configured_targets = {}
 
         vulnerables, hints, solutions, target_paths = {}, {}, {}, {}
+
         for filename, configured_path in configured_targets.items():
             if not isinstance(filename, str) or not isinstance(configured_path, str):
                 continue
@@ -228,6 +181,7 @@ class LabManager:
                 continue
             if not source_file.is_file():
                 continue
+
             target_paths[filename] = relative_path.as_posix()
             active_file = active_path / relative_path
             vulnerables[filename] = self._read_file(
@@ -238,16 +192,25 @@ class LabManager:
             if isinstance(file_hints, list):
                 hints[filename] = [hint for hint in file_hints if isinstance(hint, str)]
 
-            solution_path = configured_solutions.get(filename)
-            if not isinstance(solution_path, str) or not solution_path:
+        for sol_key, sol_rel_path in configured_solutions.items():
+            if not isinstance(sol_key, str) or not isinstance(sol_rel_path, str):
                 continue
-            candidate = (source_path / solution_path).resolve()
+
+            rel_path = Path(sol_rel_path)
+            if rel_path.is_absolute() or ".." in rel_path.parts:
+                continue
+
+            source_sol_file = (source_path / rel_path).resolve()
             try:
-                candidate.relative_to(source_path.resolve())
+                source_sol_file.relative_to(source_path.resolve())
             except ValueError:
                 continue
-            if candidate.is_file():
-                solutions[filename] = self._read_file(candidate)
+
+            active_sol_file = active_path / rel_path
+            final_sol_file = active_sol_file if active_sol_file.is_file() else source_sol_file
+
+            if final_sol_file.is_file():
+                solutions[sol_key] = self._read_file(final_sol_file)
 
         return {
             "vulnerables": vulnerables,
@@ -255,4 +218,26 @@ class LabManager:
             "hints": hints,
             "target_paths": target_paths,
         }
+
+    def get_routes_from_submodule(self, submodule_name: str, module_name:str) -> str:
+        if not submodule_name:
+            return ""
+
+        if not self.is_submodule_exist(submodule_name, module_name):
+            raise ValueError("Invalid submodule name")
+
+        main_py = os.path.join(self.labs_directory, "archives/workspaces", submodule_name, "main.py")
+
+        if not os.path.exists(main_py) or not os.path.isfile(main_py):
+            raise ValueError("Invalid main python file")
+
+        routes = []
+
+        with open(main_py) as file:
+            for line in file.readlines():
+                stripped = line.strip()
+                if stripped.startswith("@app.") or stripped.startswith("async def "):
+                    routes.append(stripped)
+
+        return "\n".join(routes)
 

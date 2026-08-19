@@ -174,7 +174,7 @@
 
     </main>
 
-    <script id="files-data" type="application/json">
+    <script id="files-data" type="template/json">
         {{ codes | tojson | safe if codes else '{}' }}
     </script>
 
@@ -392,6 +392,7 @@
             const modal = document.getElementById('solution-modal');
             const contentEl = document.getElementById('solution-content');
             const titleEl = document.getElementById('solution-title');
+
             if (!activeFilename) {
                 contentEl.innerText = 'No file selected.';
                 titleEl.innerText = 'Solution / Hint';
@@ -400,12 +401,24 @@
             }
 
             const sols = window.__solutionsMap || {};
-            const sol = sols[activeFilename];
+
+            let sol = sols[activeFilename];
+
+            if (!sol && activeFilename.includes('target')) {
+                const mappedName = activeFilename.replace('target', 'solution');
+                sol = sols[mappedName];
+            }
+
+            if (!sol && Object.keys(sols).length === 1) {
+                sol = Object.values(sols)[0];
+            }
+
             if (!sol) {
                 contentEl.innerText = 'No solution available for this file.';
             } else {
                 contentEl.innerText = sol;
             }
+
             titleEl.innerText = `Solution: ${activeFilename}`;
             modal.classList.remove('hidden');
         }
@@ -814,10 +827,13 @@
                     const data = await res.json();
 
                     if (res.ok && data.status === "success") {
-                        document.getElementById('target-canvas').src = targetProxyUrl;
-                        document.getElementById('canvas-overlay').classList.add('hidden');
-                        document.getElementById('status-indicator').className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
-                        document.getElementById('status-text').innerText = "CONTAINER ACTIVE";
+                        document.getElementById('target-canvas').src = 'about:blank';
+                        document.getElementById('canvas-overlay').classList.remove('hidden');
+                        document.getElementById('start-btn').classList.remove('hidden');
+                        document.getElementById('loading-spinner').classList.add('hidden');
+                        document.getElementById('loading-spinner').classList.remove('flex');
+                        document.getElementById('status-indicator').className = "w-2.5 h-2.5 rounded-full bg-amber-500";
+                        document.getElementById('status-text').innerText = "CONTAINER INACTIVE";
                     } else {
                         alert("Failed to reset lab: " + (data.detail || data.message || "Unknown error"));
                     }

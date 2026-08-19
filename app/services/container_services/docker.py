@@ -1,4 +1,5 @@
 import shutil
+import subprocess
 import time
 import pathlib
 import tempfile
@@ -45,6 +46,28 @@ class DockerService:
             return container
         except Exception:
             return None
+
+    @staticmethod
+    def load_lab_image(lab: dict, archive: pathlib.Path) -> bool:
+        """Load the cached tar.gz through the Docker CLI (which supports gzip input)."""
+        if DockerHelper.is_image_loaded(lab["image_tag"]):
+            return False
+        try:
+            result = subprocess.run(
+                ["docker", "load", "--input", str(archive)],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=600,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise RuntimeError(f"Docker image load failed: {exc}") from exc
+        if not DockerHelper.is_image_loaded(lab["image_tag"]):
+            raise RuntimeError(
+                f"Docker loaded the archive but manifest image '{lab['image_tag']}' was not found. "
+                f"Docker output: {result.stdout.strip() or result.stderr.strip()}"
+            )
+        return True
 
     @staticmethod
     def get_container_port(container_name: str, internal_port: int) -> int | None:
@@ -97,8 +120,6 @@ class DockerService:
 
         self._prepare_workspace(force_reset=force_reset)
 
-        # Manifest images are self-contained packages loaded with `docker load`.
-        # Do not replace their command or filesystem with a development workspace.
         if not self.original_path:
             self.container = self.client.containers.run(
                 image=self.runtime,

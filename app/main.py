@@ -13,7 +13,6 @@ from starlette.concurrency import run_in_threadpool
 
 from app.services.ai.ai_agent import RedTeamAgent
 from app.services.container_services.docker import DockerService
-from app.services.module_manager.manager import ModuleManager
 from app.services.module_manager.lab_manager import LabManager
 from app.services.container_services.helpers import DockerHelper
 
@@ -127,19 +126,20 @@ async def workspace(request: Request, module: str = None, submodule: str = None,
     source_path = manager.workspace_source_path(lab)
     work_dir = DockerService.get_work_dir_for(get_session_id(request), source_path)
     codes = manager.get_workspace_files(module, submodule, work_dir)
+    print(codes)
     return templates.TemplateResponse(request, "workspace.html", {"module": module, "submodule": submodule, "mode": mode, "codes": codes})
 
 @app.post("/api/workspace/ai-analysis")
 async def ai_analysis(payload: AIAnalysisRequest):
     module, submodule, code = payload.module, payload.submodule, payload.code
-    module_mngr = ModuleManager()
+    lab_mngr = LabManager()
     if not module or not submodule:
         raise HTTPException(status_code=404, detail="Module or submodule not specified")
-    if not module_mngr.is_module_exist(module) or not module_mngr.is_submodule_exist(submodule, module):
+    if not lab_mngr.is_module_exist(module) or not lab_mngr.is_submodule_exist(submodule, module):
         raise HTTPException(status_code=404, detail="Module or submodule not found")
 
     vulnerability_type = f"{module}_{submodule}"
-    internal_port = module_mngr.get_submodule_entry(submodule).get("internal_port")
+    internal_port = lab_mngr.get_lab_info(module, submodule).get("port")
     container_port = DockerService.get_container_port(
         f"redpatch_{module}_{submodule}", internal_port
     )
@@ -148,7 +148,7 @@ async def ai_analysis(payload: AIAnalysisRequest):
         if container_port
         else "The lab is not currently running; analyze the code and routes only."
     )
-    routes = module_mngr.get_routes_from_submodule(submodule)
+    routes = lab_mngr.get_routes_from_submodule(submodule, module)
 
     try:
         result = await RedTeamAgent().run_attack(code, vulnerability_type, routes, lab_link)
@@ -175,7 +175,7 @@ async def launch_lab(request: Request, module: str, lab_id: str):
     manager = LabManager()
     try:
         _, archive, downloaded = await run_in_threadpool(manager.download_lab, module, lab_id)
-        loaded = await run_in_threadpool(manager.load_lab_image, lab, archive)
+        loaded = await run_in_threadpool(DockerService.load_lab_image, lab, archive)
         source_path = await run_in_threadpool(manager.extract_lab_workspace, lab)
         port = await run_in_threadpool(
             manifest_docker_service(lab, get_session_id(request), source_path).start
@@ -204,18 +204,15 @@ async def download_lab(module: str, lab_id: str):
 
 @app.post("/api/labs/{module}/{lab_id}/reset")
 async def reset_lab(request: Request, module: str, lab_id: str):
-    """Recreate only from the loaded image; never download or load during reset."""
+    """Remove the active lab session; the user explicitly starts the next session."""
     lab = get_manifest_lab(module, lab_id)
     if not await run_in_threadpool(LabManager.is_image_loaded, lab["image_tag"]):
         raise HTTPException(status_code=409, detail="Lab image is not loaded yet. Launch the lab first.")
-    try:
-        source_path = await run_in_threadpool(LabManager().extract_lab_workspace, lab)
-        port = await run_in_threadpool(
-            manifest_docker_service(lab, get_session_id(request), source_path).reset_lab
-        )
-    except RuntimeError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
-    return {"status": "success", "message": f"Lab '{lab_id}' reset successfully.", "port": port}
+    source_path = LabManager().workspace_source_path(lab)
+    docker_service = manifest_docker_service(lab, get_session_id(request), source_path)
+    await run_in_threadpool(docker_service.stop)
+    await run_in_threadpool(docker_service.remove_workspace)
+    return {"status": "success", "message": f"Lab '{lab_id}' was reset. Start it when you are ready."}
 
 
 @app.api_route("/api/workspace/reset", methods=["POST"])
