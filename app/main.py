@@ -74,9 +74,9 @@ def get_manifest_lab(module: str, lab_id: str) -> dict:
     return lab
 
 
-def manifest_docker_service(lab: dict, session_id: str) -> DockerService:
+def manifest_docker_service(lab: dict, session_id: str, source_path: Path | None = None) -> DockerService:
     return DockerService(
-        port=lab["port"], path=None, entrypoint=None, runtime=lab["image_tag"],
+        port=lab["port"], path=source_path, entrypoint="main.py" if source_path else None, runtime=lab["image_tag"],
         container_name=f"redpatch_{lab['module']}_{lab['id']}", session_id=session_id,
     )
 
@@ -131,8 +131,12 @@ async def labs_manifest():
 async def workspace(request: Request, module: str = None, submodule: str = None, mode: str = None):
     if not module or not submodule:
         raise HTTPException(status_code=404, detail="Module or submodule not specified")
-    get_manifest_lab(module, submodule)
-    return templates.TemplateResponse(request, "workspace.html", {"module": module, "submodule": submodule, "mode": mode, "codes": {}})
+    lab = get_manifest_lab(module, submodule)
+    manager = LabManager()
+    source_path = manager.workspace_source_path(lab)
+    work_dir = DockerService.get_work_dir_for(get_session_id(request), source_path)
+    codes = manager.get_workspace_files(module, submodule, work_dir)
+    return templates.TemplateResponse(request, "workspace.html", {"module": module, "submodule": submodule, "mode": mode, "codes": codes})
 
 @app.post("/api/workspace/ai-analysis")
 async def ai_analysis(payload: AIAnalysisRequest):
@@ -181,7 +185,10 @@ async def launch_lab(request: Request, module: str, lab_id: str):
     try:
         _, archive, downloaded = await run_in_threadpool(manager.download_lab, module, lab_id)
         loaded = await run_in_threadpool(manager.load_lab_image, lab, archive)
-        port = await run_in_threadpool(manifest_docker_service(lab, get_session_id(request)).start)
+        source_path = await run_in_threadpool(manager.extract_lab_workspace, lab)
+        port = await run_in_threadpool(
+            manifest_docker_service(lab, get_session_id(request), source_path).start
+        )
     except RuntimeError as exc:
         logger.warning("Lab launch failed for %s/%s: %s", module, lab_id, exc)
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -211,7 +218,10 @@ async def reset_lab(request: Request, module: str, lab_id: str):
     if not await run_in_threadpool(LabManager.is_image_loaded, lab["image_tag"]):
         raise HTTPException(status_code=409, detail="Lab image is not loaded yet. Launch the lab first.")
     try:
-        port = await run_in_threadpool(manifest_docker_service(lab, get_session_id(request)).reset_lab)
+        source_path = await run_in_threadpool(LabManager().extract_lab_workspace, lab)
+        port = await run_in_threadpool(
+            manifest_docker_service(lab, get_session_id(request), source_path).reset_lab
+        )
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return {"status": "success", "message": f"Lab '{lab_id}' reset successfully.", "port": port}
@@ -317,70 +327,32 @@ async def proxy_submodule(module: str, submodule: str, request: Request, path: s
 @app.get("/api/workspace/files")
 async def workspace_files(request: Request, module: str = None, submodule: str = None):
     session_id = get_session_id(request)
-    module_mngr = ModuleManager()
-
-    if not module_mngr.is_module_exist(module) or not module_mngr.is_submodule_exist(submodule, module):
-        raise HTTPException(status_code=404, detail="Submodule not found")
-
-    sub_entry = module_mngr.get_submodule_entry(submodule)
-    tmp_workdir = DockerService.get_work_dir_for(session_id, sub_entry["submodule_folder"])
-    return JSONResponse(status_code=200, content=module_mngr.get_workspace_files(module, submodule, tmp_workdir))
+    lab = get_manifest_lab(module, submodule)
+    manager = LabManager()
+    source_path = manager.workspace_source_path(lab)
+    tmp_workdir = DockerService.get_work_dir_for(session_id, source_path)
+    return JSONResponse(status_code=200, content=manager.get_workspace_files(module, submodule, tmp_workdir))
 
 @app.post("/api/workspace/patch")
 async def workspace_patch(request: Request, payload: PatchRequest):
     session_id = get_session_id(request)
-    module_mngr = ModuleManager()
+    lab = get_manifest_lab(payload.module, payload.submodule)
+    manager = LabManager()
+    source_path = manager.workspace_source_path(lab)
+    if not source_path.is_dir():
+        raise HTTPException(status_code=409, detail="Lab workspace is not prepared yet. Launch the lab first.")
 
-    if not module_mngr.is_module_exist(
-        payload.module
-    ) or not module_mngr.is_submodule_exist(payload.submodule, payload.module):
-        raise HTTPException(status_code=404, detail="Submodule not found")
-
-    runtime = module_mngr.get_submodule_entry(payload.submodule).get("runtime")
-    entrypoint = module_mngr.get_submodule_entry(payload.submodule).get(
-        "entrypoint"
+    docker_service = manifest_docker_service(lab, session_id, source_path)
+    allowed_filenames = set(
+        manager.get_workspace_files(payload.module, payload.submodule).get("vulnerables", {}).keys()
     )
-    internal_port = module_mngr.get_submodule_entry(payload.submodule).get(
-        "internal_port"
-    )
-    path = module_mngr.get_submodule_entry(payload.submodule)["submodule_folder"]
-
-    if not runtime or not entrypoint or not internal_port or not os.path.exists(path):
-        raise HTTPException(
-            status_code=404, detail="Submodule configuration is incomplete"
-        )
-
-    container_name = f"redpatch_{payload.module}_{payload.submodule}"
-
-    docker_service = DockerService(
-        port=internal_port,
-        path=path,
-        entrypoint=entrypoint,
-        runtime=runtime,
-        container_name=container_name,
-        session_id=session_id,
-    )
-
-    # Validate that the filename is part of the declared submodule codes mapping.
-    sub_entry = module_mngr.get_submodule_entry(payload.submodule)
-    allowed_filenames = set(sub_entry.get("codes", {}).keys())
     if payload.filename not in allowed_filenames:
         raise HTTPException(
             status_code=400,
             detail=f"Target file '{payload.filename}' is not allowed to be modified.",
         )
 
-    # Resolve the relative path inside the submodule so we patch the correct nested file
-    def find_relative_path(base_path: str, target_name: str) -> str | None:
-        for root, dirs, files in os.walk(base_path):
-            if target_name in files:
-                return os.path.relpath(os.path.join(root, target_name), base_path)
-        return None
-
-    relpath = find_relative_path(path, payload.filename)
-    target_rel = relpath or payload.filename
-
-    patched = docker_service.patch_code(target_rel, payload.code)
+    patched = docker_service.patch_code(payload.filename, payload.code)
 
     if not patched:
         raise HTTPException(

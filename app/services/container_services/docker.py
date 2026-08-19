@@ -136,7 +136,7 @@ class DockerService:
 
         else:
             start_command = (
-                f"exec uvicorn {module_name}:app --host 0.0.0.0 --port {self.internal_port} --reload'"
+                f"sh -c 'exec uvicorn {module_name}:app --host 0.0.0.0 --port {self.internal_port} --reload'"
             )
 
             self.container = self.client.containers.run(

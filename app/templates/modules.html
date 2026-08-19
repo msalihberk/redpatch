@@ -201,7 +201,7 @@
                 );
                 const payload = await response.json();
                 if (!response.ok) throw new Error(payload.detail || 'Download failed.');
-                button.innerHTML = '<i class="fa-solid fa-check"></i><span>Archive Cached</span>';
+                button.innerHTML = '<i class="fa-solid fa-check"></i><span>Lab Downloaded</span>';
             } catch (error) {
                 button.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i><span>Download Failed</span>';
                 alert(error.message || 'The lab archive could not be downloaded.');
