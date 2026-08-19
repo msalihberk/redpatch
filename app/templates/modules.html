@@ -103,8 +103,8 @@
                 </div>
 
                 <div class="pt-4 border-t border-brand-border/60 space-y-2">
-                    <button type="button" data-module="{{ module }}" data-lab-id="{{ sub.id }}" onclick="downloadLab(this)" class="w-full py-2 px-4 rounded bg-slate-800 hover:bg-slate-700 border border-brand-border text-slate-300 text-xs font-mono font-semibold transition-all flex items-center justify-between">
-                        <span>Download Lab Archive</span>
+                    <button type="button" data-module="{{ module }}" data-lab-id="{{ sub.id }}" onclick="downloadLab(this)" class="w-full py-2 px-4 rounded bg-slate-800 hover:bg-slate-700 border border-brand-border text-slate-300 text-xs font-mono font-semibold transition-all flex items-center justify-between download-lab-button">
+                        <span>&nbsp;Download Lab Archive&nbsp;</span>
                         <i class="fa-solid fa-download text-xs"></i>
                     </button>
                     <a href="{{ url_for('workspace') }}?module={{ module }}&submodule={{ sub.id }}{% if mode %}&mode={{ mode }}{% endif %}" class="w-full py-2.5 px-4 rounded bg-red-600/10 hover:bg-red-600/20 border border-red-500/30 hover:border-red-500/60 text-red-400 text-xs font-mono font-semibold transition-all flex items-center justify-between group/btn">
@@ -189,6 +189,43 @@
     </footer>
 
     <script>
+        async function checkDownloadStatus(labId){
+            const response = await fetch(
+                `/api/labs/${encodeURIComponent(labId)}/is_downloaded`,
+                { method: 'GET' }
+            );
+
+            if (!response.ok) throw new Error('Network Error');
+
+            const statusMap = await response.json();
+
+            return statusMap["is_downloaded"];
+        }
+        async function checkAllDownloadStatuses() {
+            const buttons = document.querySelectorAll('.download-lab-button');
+            const labIds = Array.from(buttons).map(btn => btn.dataset.labId);
+
+            if (labIds.length === 0) return;
+
+            try {
+                for (const btn of buttons) {
+                    const labId = btn.dataset.labId;
+                    let is_downloaded = await checkDownloadStatus(labId);
+
+                    if (!is_downloaded) {
+                        btn.style.display = 'inline-block';
+                    }
+                    else {
+                        btn.style.display = 'none';
+                    }
+                }
+
+            }
+            catch (error) {
+                console.error('An error occurred whilst checking the status :', error);
+                }
+            }
+
         async function downloadLab(button) {
             const { module, labId } = button.dataset;
             const original = button.innerHTML;
@@ -210,6 +247,9 @@
             }
             button.disabled = false;
         }
+
+        checkAllDownloadStatuses();
+
     </script>
 
 </body>

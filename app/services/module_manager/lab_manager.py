@@ -120,11 +120,31 @@ class LabManager:
             raise RuntimeError(f"Lab archive download failed: {exc}") from exc
         return lab, archive, True
 
+    def is_lab_downloaded(self, lab_id:str):
+        tar_file = os.path.join(self.labs_directory, "archives", f"{lab_id}.tar")
+        tar_gz_file = os.path.join(self.labs_directory, "archives", f"{lab_id}.tar.gz")
+
+        if not os.path.exists(tar_file) and not os.path.exists(tar_gz_file):
+            return False
+
+        return True
+
+    def delete_lab_file(self, lab_id:str):
+        tar_file = os.path.join(self.labs_directory, "archives", f"{lab_id}.tar")
+        tar_gz_file = os.path.join(self.labs_directory, "archives", f"{lab_id}.tar.gz")
+
+        file = tar_file if os.path.exists(tar_file) else tar_gz_file
+
+        if not os.path.exists(file):
+            raise ValueError("Invalid lab-id")
+
+        os.remove(file)
+
     def is_module_exist(self, module_name):
         return bool(module_name) and module_name in self.modules
 
-    def is_submodule_exist(self, submodule_name, module_name=None):
-        return bool(module_name and self.get_lab_info(module_name, submodule_name))
+    def is_submodule_exist(self, lab_id, module_name=None):
+        return bool(module_name and self.get_lab_info(module_name, lab_id))
 
     def discover(self):
         self.modules.clear()

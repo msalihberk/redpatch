@@ -36,7 +36,8 @@ class AIAnalysisRequest(BaseModel):
 
 async def lifespan(app: FastAPI):
     yield
-    DockerService.cleanup_all_redpatch_containers()
+    # DockerService.cleanup_all_redpatch_containers()
+    pass
 app = FastAPI(title="RedPatch", lifespan=lifespan)
 BASE_DIR = Path(__file__).resolve().parent
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
@@ -213,6 +214,12 @@ async def reset_lab(request: Request, module: str, lab_id: str):
     await run_in_threadpool(docker_service.stop)
     await run_in_threadpool(docker_service.remove_workspace)
     return {"status": "success", "message": f"Lab '{lab_id}' was reset. Start it when you are ready."}
+
+@app.get("/api/labs/{lab_id}/is_downloaded")
+async def is_downloaded(request: Request, lab_id: str):
+    result = LabManager().is_lab_downloaded(lab_id)
+    return {"is_downloaded": result}
+
 
 
 @app.api_route("/api/workspace/reset", methods=["POST"])
