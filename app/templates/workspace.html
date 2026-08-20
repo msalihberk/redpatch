@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RedPatch Workspace | {{ module }} - {{ submodule }}</title>
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', path='favicon.ico') }}">
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -22,11 +21,10 @@
             }
         }
     </script>
-    <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <!-- Monaco Editor CDN Loader -->
+    {% if mode != 'pentester' %}
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+    {% endif %}
 
     <style>
         pre, code { font-family: 'Fira Code', 'Courier New', Courier, monospace; }
@@ -34,7 +32,6 @@
         ::-webkit-scrollbar-track { background: #0f172a; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
 
-        /* Monaco Container Fixes */
         .monaco-editor, .monaco-editor .overflow-guard {
             border-radius: 0.375rem;
         }
@@ -42,8 +39,7 @@
 </head>
 <body class="bg-darkBg text-slate-200 h-screen flex flex-col overflow-hidden font-sans">
 
-    <!-- TOP NAVBAR -->
-    <header class="h-14 border-b border-borderBg bg-cardBg/50 px-4 flex items-center justify-between shrink-0">
+    <header class="h-14 border-b border-borderBg bg-cardBg/50 px-4 flex items-center justify-between shrink-0 z-20">
         <div class="flex items-center space-x-3">
             <a href="/modules" class="text-slate-400 hover:text-white transition-colors" title="Back to Modules">
                 <i class="fa-solid fa-arrow-left"></i>
@@ -73,8 +69,17 @@
             {% endif %}
         </div>
 
-        <!-- LAB STATUS & ACTIONS -->
         <div class="flex items-center space-x-3">
+            {% if mode == 'pentester' %}
+            <button id="hint-btn" onclick="showHintsPopup()" class="bg-amber-600 hover:bg-amber-500 text-white font-medium text-xs px-3 py-1.5 rounded border border-amber-500/50 shadow transition-all flex items-center gap-1.5" title="Show Hints">
+                <i class="fa-solid fa-lightbulb"></i> Hint
+            </button>
+            <button id="solution-btn" onclick="showSolutionPopup()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-3 py-1.5 rounded border border-emerald-500/50 shadow transition-all flex items-center gap-1.5" title="Show Solution">
+                <i class="fa-solid fa-user-ninja"></i> Solution / PoC
+            </button>
+            <div class="h-4 w-px bg-borderBg"></div>
+            {% endif %}
+
             <div class="flex items-center space-x-2 text-xs bg-slate-900/80 px-3 py-1.5 rounded-md border border-slate-700">
                 <span id="status-indicator" class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
                 <span id="status-text" class="text-slate-300 font-mono">CONTAINER INACTIVE</span>
@@ -86,52 +91,45 @@
         </div>
     </header>
 
-    <!-- MAIN WORKSPACE SPLIT-VIEW -->
     <main class="flex-1 flex overflow-hidden">
 
-        <!-- LEFT PANEL: CODE EDITOR & FILE TABS -->
+        {% if mode != 'pentester' %}
         <section class="w-1/2 border-r border-borderBg flex flex-col bg-cardBg/30">
             <div class="h-10 bg-slate-900/80 border-b border-borderBg flex items-center px-2 space-x-1 overflow-x-auto text-xs font-mono" id="file-tabs">
             </div>
 
-            <!-- Context Info Bar -->
             <div class="bg-slate-900/40 p-2.5 border-b border-borderBg text-xs text-slate-300 flex items-center justify-between">
                 <span><strong class="text-patchRed">Target File:</strong> <span id="active-filename-display">Select a file</span></span>
                 <span id="active-language-display" class="text-slate-500 font-mono text-[11px] uppercase">DETECTING...</span>
             </div>
 
-            <!-- Monaco Editor Container -->
             <div class="flex-1 p-2 relative overflow-hidden bg-slate-950">
                 <div id="monaco-editor-container" class="w-full h-full rounded-md overflow-hidden"></div>
             </div>
 
-            <!-- Action Footer -->
             <div class="h-14 bg-slate-900/80 border-t border-borderBg px-4 flex items-center justify-between">
                 <span id="patch-status" class="text-xs text-slate-400 font-mono"></span>
                 <div class="flex items-center gap-2">
-                    <button id="hint-btn" onclick="showHintsPopup()" class="bg-yellow-700 hover:bg-yellow-600 text-white font-medium text-xs px-3 py-2 rounded shadow transition-all" title="Show Hints">
+                    <button id="hint-btn" onclick="showHintsPopup()" class="bg-amber-700 hover:bg-amber-600 text-white font-medium text-xs px-3 py-2 rounded shadow transition-all" title="Show Hints">
                         <i class="fa-solid fa-lightbulb"></i> Hint
                     </button>
                     <button id="solution-btn" onclick="showSolutionPopup()" class="bg-slate-700 hover:bg-slate-600 text-white font-medium text-xs px-3 py-2 rounded shadow transition-all" title="Show Solution">
                         <i class="fa-solid fa-check-circle"></i> Solution
                     </button>
-                    {% if mode == 'coder' %}
-                        <button onclick="applyPatch()" class="bg-patchRed hover:bg-red-600 text-white font-medium text-xs px-4 py-2 rounded shadow transition-all flex items-center gap-2">
-                            <i class="fa-solid fa-save"></i>
-                            Apply Changes
-                        </button>
-                        <button onclick="runAI()" class="bg-slate-900 hover:bg-slate-800 border border-indigo-500/40 text-indigo-400 font-medium text-xs px-4 py-2 rounded shadow transition-all flex items-center gap-2">
-                            <i class="fa-solid fa-microchip"></i>
-                            <span>Run AI Analysis</span>
-                        </button>
-                    {% endif %}
+                    <button onclick="applyPatch()" class="bg-patchRed hover:bg-red-600 text-white font-medium text-xs px-4 py-2 rounded shadow transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-save"></i>
+                        Apply Changes
+                    </button>
+                    <button onclick="runAI()" class="bg-slate-900 hover:bg-slate-800 border border-indigo-500/40 text-indigo-400 font-medium text-xs px-4 py-2 rounded shadow transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-microchip"></i>
+                        <span>Run AI Analysis</span>
+                    </button>
                 </div>
             </div>
         </section>
+        {% endif %}
 
-        <!-- RIGHT PANEL: TARGET CANVAS (LIVE IFRAME) -->
-        <section class="w-1/2 flex flex-col bg-slate-950 relative">
-            <!-- Canvas Header Bar -->
+        <section class="{% if mode == 'pentester' %}w-full{% else %}w-1/2{% endif %} flex flex-col bg-slate-950 relative">
             <div class="h-10 bg-slate-900/60 border-b border-borderBg px-4 flex items-center justify-between text-xs text-slate-400">
                 <div class="flex items-center space-x-2 font-mono">
                     <i class="fa-solid fa-desktop text-emerald-400"></i>
@@ -147,9 +145,7 @@
                 </div>
             </div>
 
-            <!-- iFrame Canvas Container -->
             <div class="flex-1 relative w-full h-full bg-slate-950">
-                <!-- Overlay Container Launch Control -->
                 <div id="canvas-overlay" class="absolute inset-0 z-10 bg-slate-950/95 flex flex-col items-center justify-center gap-4 text-center p-6">
                     <div class="w-16 h-16 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-patchRed text-2xl shadow-inner mb-2">
                         <i class="fa-solid fa-server"></i>
@@ -180,25 +176,23 @@
         {{ codes | tojson | safe if codes else '{}' }}
     </script>
 
-    <div id="solution-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-        <div class="bg-slate-800 text-slate-200 rounded-md w-3/4 max-w-3xl p-4">
+    <div id="solution-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div class="bg-slate-800 text-slate-200 rounded-md w-3/4 max-w-3xl p-4 border border-slate-700 shadow-2xl">
             <div class="flex justify-between items-center mb-3">
                 <h3 id="solution-title" class="text-lg font-semibold">Solution</h3>
                 <button onclick="closeSolutionPopup()" class="text-slate-400 hover:text-white">✕</button>
             </div>
-            <pre id="solution-content" class="bg-slate-900 p-3 rounded text-sm overflow-auto max-h-72"></pre>
+            <pre id="solution-content" class="bg-slate-900 p-3 rounded text-sm overflow-auto max-h-72 font-mono whitespace-pre-wrap text-slate-300 border border-slate-950"></pre>
             <div class="mt-3 text-right">
                 <button onclick="closeSolutionPopup()" class="bg-slate-700 hover:bg-slate-600 text-white text-xs px-3 py-1.5 rounded">Close</button>
             </div>
         </div>
     </div>
 
-    <!-- AI ANALYSIS MODAL -->
+    {% if mode != 'pentester' %}
     <div id="ai-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
         <div class="bg-slate-800 text-slate-200 rounded-lg w-11/12 max-w-2xl p-5 border border-slate-700 shadow-2xl">
-            <div id="ai-modal-content">
-
-            </div>
+            <div id="ai-modal-content"></div>
             <div class="mt-5 text-right border-t border-slate-700/60 pt-3">
                 <button onclick="closeAIModal()" class="bg-slate-700 hover:bg-slate-600 text-white text-xs px-4 py-2 rounded font-medium transition-colors">
                     Close
@@ -206,6 +200,7 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
     <script>
         const currentModule = "{{ module }}";
@@ -232,6 +227,7 @@
 
         function renderTabs() {
             const tabs = document.getElementById('file-tabs');
+            if (!tabs) return;
             tabs.innerHTML = '';
             const filenames = Object.keys(fileModels);
             if (!filenames.length) {
@@ -239,7 +235,7 @@
                 return;
             }
 
-            filenames.forEach((filename, idx) => {
+            filenames.forEach((filename) => {
                 const btn = document.createElement('button');
                 btn.className = 'tab-btn px-3 py-1.5 rounded-t border-t border-x border-transparent hover:text-white flex items-center gap-2 transition-all';
                 if (filename === activeFilename) {
@@ -256,25 +252,11 @@
         function getLanguageByExtension(filename) {
             const ext = filename.split('.').pop().toLowerCase();
             const map = {
-                'py': 'python',
-                'js': 'javascript',
-                'ts': 'typescript',
-                'html': 'html',
-                'htm': 'html',
-                'css': 'css',
-                'php': 'php',
-                'c': 'c',
-                'cpp': 'cpp',
-                'cs': 'csharp',
-                'go': 'go',
-                'sh': 'shell',
-                'bash': 'shell',
-                'sql': 'sql',
-                'json': 'json',
-                'xml': 'xml',
-                'yaml': 'yaml',
-                'yml': 'yaml',
-                'md': 'markdown'
+                'py': 'python', 'js': 'javascript', 'ts': 'typescript',
+                'html': 'html', 'htm': 'html', 'css': 'css', 'php': 'php',
+                'c': 'c', 'cpp': 'cpp', 'cs': 'csharp', 'go': 'go',
+                'sh': 'shell', 'bash': 'shell', 'sql': 'sql', 'json': 'json',
+                'xml': 'xml', 'yaml': 'yaml', 'yml': 'yaml', 'md': 'markdown'
             };
             return map[ext] || null;
         }
@@ -302,49 +284,50 @@
             return getLanguageByExtension(filename) || autoDetectLanguage(content);
         }
 
-        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
+        if (currentMode !== 'pentester') {
+            require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
 
-        require(['vs/editor/editor.main'], function () {
-            Object.keys(vulnerablesData || {}).forEach(filename => {
-                const content = vulnerablesData[filename] || '';
-                const lang = resolveLanguage(filename, content);
-                fileModels[filename] = {
-                    model: monaco.editor.createModel(content, lang),
-                    language: lang
-                };
+            require(['vs/editor/editor.main'], function () {
+                Object.keys(vulnerablesData || {}).forEach(filename => {
+                    const content = vulnerablesData[filename] || '';
+                    const lang = resolveLanguage(filename, content);
+                    fileModels[filename] = {
+                        model: monaco.editor.createModel(content, lang),
+                        language: lang
+                    };
+                });
+
+                activeFilename = getInitialActiveFilename();
+
+                const container = document.getElementById('monaco-editor-container');
+                const initialFile = activeFilename && fileModels[activeFilename];
+
+                if (container) {
+                    monacoEditor = monaco.editor.create(container, {
+                        model: initialFile ? initialFile.model : null,
+                        theme: 'vs-dark',
+                        automaticLayout: true,
+                        fontSize: 13,
+                        fontFamily: "'Fira Code', 'Courier New', Courier, monospace",
+                        minimap: { enabled: false },
+                        scrollBeyondLastLine: false,
+                        lineNumbers: 'on',
+                        roundedSelection: true,
+                        cursorBlinking: 'smooth',
+                        padding: { top: 12, bottom: 12 }
+                    });
+                }
+
+                renderTabs();
+                if (activeFilename) updateUIHeader(activeFilename);
             });
+        }
 
-            const solutionsMap = Object.assign({}, solutionsData || {});
-            const hintsMap = Object.assign({}, hintsData || {});
-
-            activeFilename = getInitialActiveFilename();
-
-            const container = document.getElementById('monaco-editor-container');
-            const initialFile = activeFilename && fileModels[activeFilename];
-
-            monacoEditor = monaco.editor.create(container, {
-                model: initialFile ? initialFile.model : null,
-                theme: 'vs-dark',
-                automaticLayout: true,
-                fontSize: 13,
-                fontFamily: "'Fira Code', 'Courier New', Courier, monospace",
-                minimap: { enabled: false },
-                scrollBeyondLastLine: false,
-                lineNumbers: 'on',
-                roundedSelection: true,
-                cursorBlinking: 'smooth',
-                padding: { top: 12, bottom: 12 }
-            });
-
-            renderTabs();
-            if (activeFilename) updateUIHeader(activeFilename);
-
-            window.__solutionsMap = solutionsMap;
-            window.__hintsMap = hintsMap;
-        });
+        window.__solutionsMap = Object.assign({}, solutionsData || {});
+        window.__hintsMap = Object.assign({}, hintsData || {});
 
         (async () => {
-            if (!Object.keys(rawFilesData || {}).length) {
+            if (!Object.keys(rawFilesData || {}).length && currentMode !== 'pentester') {
                 const files = await fetchWorkspaceFiles();
                 if (files) await reloadEditorFiles(files);
             }
@@ -365,29 +348,32 @@
             const vuln = newFiles.vulnerables || {};
             const sols = newFiles.solutions || {};
 
-            Object.keys(vuln).forEach(filename => {
-                const content = vuln[filename] || '';
-                if (fileModels[filename]) {
-                    const model = fileModels[filename].model;
-                    if (model.getValue() !== content) model.setValue(content);
-                } else {
-                    const lang = resolveLanguage(filename, content);
-                    fileModels[filename] = { model: monaco.editor.createModel(content, lang), language: lang };
-                }
-            });
+            if (currentMode !== 'pentester') {
+                Object.keys(vuln).forEach(filename => {
+                    const content = vuln[filename] || '';
+                    if (fileModels[filename]) {
+                        const model = fileModels[filename].model;
+                        if (model.getValue() !== content) model.setValue(content);
+                    } else {
+                        const lang = resolveLanguage(filename, content);
+                        fileModels[filename] = { model: monaco.editor.createModel(content, lang), language: lang };
+                    }
+                });
+            }
 
             window.__solutionsMap = Object.assign({}, sols || {});
             window.__hintsMap = Object.assign({}, newFiles.hints || {});
 
-            if (!activeFilename) activeFilename = Object.keys(fileModels)[0] || null;
+            if (!activeFilename && currentMode !== 'pentester') activeFilename = Object.keys(fileModels)[0] || null;
 
-            // if current model is null, set it
             if (activeFilename && monacoEditor && monacoEditor.getModel() !== fileModels[activeFilename].model) {
                 monacoEditor.setModel(fileModels[activeFilename].model);
             }
 
-            renderTabs();
-            if (activeFilename) updateUIHeader(activeFilename);
+            if (currentMode !== 'pentester') {
+                renderTabs();
+                if (activeFilename) updateUIHeader(activeFilename);
+            }
         }
 
         function showSolutionPopup() {
@@ -395,37 +381,27 @@
             const contentEl = document.getElementById('solution-content');
             const titleEl = document.getElementById('solution-title');
 
-            if (!activeFilename) {
-                contentEl.innerText = 'No file selected.';
-                titleEl.innerText = 'Solution';
-                modal.classList.remove('hidden');
-                return;
-            }
-
             const sols = window.__solutionsMap || {};
-            let sol = sols["pentester"]
+            let sol = null;
 
-            if (currentMode === "coder") {
-                sol = sols[activeFilename];
-
-                if (!sol && activeFilename.includes('target')) {
-                    const mappedName = activeFilename.replace('target', 'solution');
-                    sol = sols[mappedName];
+            if (currentMode === "pentester") {
+                sol = sols["pentester"] || sols["poc"] || sols["exploit"];
+            } else {
+                if (activeFilename) {
+                    sol = sols[activeFilename];
+                    if (!sol && activeFilename.includes('target')) {
+                        const mappedName = activeFilename.replace('target', 'solution');
+                        sol = sols[mappedName];
+                    }
                 }
             }
 
-
-            if (!sol && Object.keys(sols).length === 1) {
+            if (!sol && Object.keys(sols).length > 0) {
                 sol = Object.values(sols)[0];
             }
 
-            if (!sol) {
-                contentEl.innerText = 'No solution available for this file.';
-            } else {
-                contentEl.innerText = sol;
-            }
-
-            titleEl.innerText = `Solution: ${activeFilename}`;
+            contentEl.innerText = sol || 'No solution or PoC available for this lab.';
+            titleEl.innerText = currentMode === 'pentester' ? 'Exploit Solution / PoC' : `Solution: ${activeFilename || 'Lab'}`;
             modal.classList.remove('hidden');
         }
 
@@ -437,31 +413,40 @@
             const modal = document.getElementById('solution-modal');
             const contentEl = document.getElementById('solution-content');
             const titleEl = document.getElementById('solution-title');
-            if (!activeFilename) {
-                contentEl.innerText = 'No file selected.';
-                titleEl.innerText = 'Hints';
-                modal.classList.remove('hidden');
-                return;
-            }
 
             const hints = window.__hintsMap || {};
-            let list = hints[activeFilename]
+            let list = null;
+
             if (currentMode === "pentester") {
-                list = hints["pentester"];
+                list = hints["pentester"] || hints["general"];
+            } else if (activeFilename) {
+                list = hints[activeFilename];
             }
+
+            if (!list && Object.keys(hints).length > 0) {
+                list = Object.values(hints)[0];
+            }
+
             if (!list || !list.length) {
-                contentEl.innerText = 'No hints available for this file.';
-            } else {
+                contentEl.innerText = 'No hints available for this lab.';
+            } else if (Array.isArray(list)) {
                 contentEl.innerText = list.map((h, i) => `${i+1}. ${h}`).join('\n\n');
+            } else {
+                contentEl.innerText = list;
             }
-            titleEl.innerText = `Hints: ${activeFilename}`;
+
+            titleEl.innerText = currentMode === 'pentester' ? 'Pentest Hints' : `Hints: ${activeFilename || 'Lab'}`;
             modal.classList.remove('hidden');
         }
 
         function updateUIHeader(filename) {
-            document.getElementById('active-filename-display').innerText = filename;
-            const lang = fileModels[filename] ? fileModels[filename].language : 'plaintext';
-            document.getElementById('active-language-display').innerText = lang.toUpperCase();
+            const displayEl = document.getElementById('active-filename-display');
+            const langEl = document.getElementById('active-language-display');
+            if (displayEl) displayEl.innerText = filename;
+            if (langEl) {
+                const lang = fileModels[filename] ? fileModels[filename].language : 'plaintext';
+                langEl.innerText = lang.toUpperCase();
+            }
         }
 
         function switchTab(filename, evt) {
@@ -498,8 +483,6 @@
             try {
                 loadingMessage.innerText = 'Downloading...';
                 const launchRequest = fetch(launchUrl, { method: 'POST' });
-                // The response is intentionally delayed until Docker has loaded the archive.
-                // Keep the state explicit while that work is running.
                 setTimeout(() => { loadingMessage.innerText = 'Preparing... Loading the Docker image.'; }, 700);
                 const launchResponse = await launchRequest;
                 const launchData = await launchResponse.json();
@@ -526,14 +509,13 @@
                         statusIndicator.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
                         statusText.innerText = "CONTAINER ACTIVE";
 
-                        // Reload workspace files from session temp workspace so editor shows latest
-                        const files = await fetchWorkspaceFiles();
-                        if (files) await reloadEditorFiles(files);
+                        if (currentMode !== 'pentester') {
+                            const files = await fetchWorkspaceFiles();
+                            if (files) await reloadEditorFiles(files);
+                        }
                         return;
                     }
-                } catch (e) {
-                    // Waiting for container startup
-                }
+                } catch (e) {}
 
                 attempts++;
                 if (attempts < maxAttempts) {
@@ -606,6 +588,7 @@
         function displayAIAnalysisResult(analysis) {
             const modal = document.getElementById('ai-modal');
             const content = document.getElementById('ai-modal-content');
+            if (!modal || !content) return;
 
             if (analysis.target_line && analysis.target_line > 0 && analysis.vulnerability_found) {
                 const startLine = Math.max(1, analysis.target_line - 1);
@@ -680,96 +663,97 @@
         }
 
         function closeAIModal() {
-            document.getElementById('ai-modal').classList.add('hidden');
+            const modal = document.getElementById('ai-modal');
+            if (modal) modal.classList.add('hidden');
         }
 
         function executeExploitInIframe(exploitRequest) {
-        if (!exploitRequest || !exploitRequest.path) {
-            throw new Error('The AI response does not include an exploit request.');
-        }
-
-        const iframe = document.getElementById('target-canvas');
-        iframe.name = 'target-canvas';
-        const method = (exploitRequest.method || 'GET').toUpperCase();
-        if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
-            throw new Error(`Unsupported HTTP method: ${method}`);
-        }
-
-        const rawPath = String(exploitRequest.path);
-        if (rawPath.includes('://')) {
-            throw new Error('Exploit request paths must be relative to the current lab.');
-        }
-
-        const [pathOnly, pathQuery = ''] = rawPath.split('?', 2);
-        const relativePath = pathOnly.replace(/^\/+/, '');
-        const targetUrl = new URL(
-            `${targetProxyUrl}/${relativePath}`.replace(/\/$/, relativePath ? '' : '/'),
-            window.location.origin
-        );
-
-        function safeParseField(fieldValue) {
-            if (!fieldValue || fieldValue === 'null') return {};
-            if (typeof fieldValue === 'object') return fieldValue;
-            if (typeof fieldValue === 'string') {
-                try {
-                    const parsed = JSON.parse(fieldValue);
-                    return typeof parsed === 'object' && parsed !== null ? parsed : {};
-                } catch (e) {
-                    return {};
-                }
+            if (!exploitRequest || !exploitRequest.path) {
+                throw new Error('The AI response does not include an exploit request.');
             }
-            return {};
+
+            const iframe = document.getElementById('target-canvas');
+            iframe.name = 'target-canvas';
+            const method = (exploitRequest.method || 'GET').toUpperCase();
+            if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+                throw new Error(`Unsupported HTTP method: ${method}`);
+            }
+
+            const rawPath = String(exploitRequest.path);
+            if (rawPath.includes('://')) {
+                throw new Error('Exploit request paths must be relative to the current lab.');
+            }
+
+            const [pathOnly, pathQuery = ''] = rawPath.split('?', 2);
+            const relativePath = pathOnly.replace(/^\/+/, '');
+            const targetUrl = new URL(
+                `${targetProxyUrl}/${relativePath}`.replace(/\/$/, relativePath ? '' : '/'),
+                window.location.origin
+            );
+
+            function safeParseField(fieldValue) {
+                if (!fieldValue || fieldValue === 'null') return {};
+                if (typeof fieldValue === 'object') return fieldValue;
+                if (typeof fieldValue === 'string') {
+                    try {
+                        const parsed = JSON.parse(fieldValue);
+                        return typeof parsed === 'object' && parsed !== null ? parsed : {};
+                    } catch (e) {
+                        return {};
+                    }
+                }
+                return {};
+            }
+
+            const reqHeaders = safeParseField(exploitRequest.headers);
+            const reqParams = safeParseField(exploitRequest.params);
+            const reqData = safeParseField(exploitRequest.data);
+            const reqJsonBody = safeParseField(exploitRequest.json_body);
+
+            const queryParams = new URLSearchParams(pathQuery);
+            Object.entries(reqParams).forEach(([key, value]) => {
+                queryParams.set(key, typeof value === 'object' ? JSON.stringify(value) : String(value));
+            });
+            targetUrl.search = queryParams.toString();
+
+            if (method === 'GET') {
+                iframe.src = targetUrl.toString();
+                return;
+            }
+
+            if (method !== 'POST') {
+                targetUrl.searchParams.set('_redpatch_method', method);
+            }
+
+            if (Object.keys(reqHeaders).length) {
+                targetUrl.searchParams.set('_redpatch_headers', encodeProxyMetadata(reqHeaders));
+            }
+
+            const usesJsonBody = Object.keys(reqData).length === 0 && Object.keys(reqJsonBody).length > 0;
+            if (usesJsonBody) {
+                targetUrl.searchParams.set('_redpatch_json_body', encodeProxyMetadata(reqJsonBody));
+            }
+
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = targetUrl.toString();
+            form.target = iframe.name;
+            form.enctype = 'application/x-www-form-urlencoded';
+            form.style.display = 'none';
+
+            const payloadData = Object.keys(reqData).length > 0 ? reqData : reqJsonBody;
+            Object.entries(payloadData).forEach(([key, value]) => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = typeof value === 'object' ? JSON.stringify(value) : String(value);
+                form.appendChild(input);
+            });
+
+            document.body.appendChild(form);
+            form.submit();
+            form.remove();
         }
-
-        const reqHeaders = safeParseField(exploitRequest.headers);
-        const reqParams = safeParseField(exploitRequest.params);
-        const reqData = safeParseField(exploitRequest.data);
-        const reqJsonBody = safeParseField(exploitRequest.json_body);
-
-        const queryParams = new URLSearchParams(pathQuery);
-        Object.entries(reqParams).forEach(([key, value]) => {
-            queryParams.set(key, typeof value === 'object' ? JSON.stringify(value) : String(value));
-        });
-        targetUrl.search = queryParams.toString();
-
-        if (method === 'GET') {
-            iframe.src = targetUrl.toString();
-            return;
-        }
-
-        if (method !== 'POST') {
-            targetUrl.searchParams.set('_redpatch_method', method);
-        }
-
-        if (Object.keys(reqHeaders).length) {
-            targetUrl.searchParams.set('_redpatch_headers', encodeProxyMetadata(reqHeaders));
-        }
-
-        const usesJsonBody = Object.keys(reqData).length === 0 && Object.keys(reqJsonBody).length > 0;
-        if (usesJsonBody) {
-            targetUrl.searchParams.set('_redpatch_json_body', encodeProxyMetadata(reqJsonBody));
-        }
-
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = targetUrl.toString();
-        form.target = iframe.name;
-        form.enctype = 'application/x-www-form-urlencoded';
-        form.style.display = 'none';
-
-        const payloadData = Object.keys(reqData).length > 0 ? reqData : reqJsonBody;
-        Object.entries(payloadData).forEach(([key, value]) => {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = key;
-            input.value = typeof value === 'object' ? JSON.stringify(value) : String(value);
-            form.appendChild(input);
-        });
-
-        document.body.appendChild(form);
-        form.submit();
-        form.remove();
-    }
 
         function encodeProxyMetadata(value) {
             return btoa(unescape(encodeURIComponent(JSON.stringify(value))));
@@ -788,7 +772,6 @@
         async function applyPatch() {
             if (!activeFilename || !monacoEditor || !fileModels[activeFilename]) return;
 
-            // Get code directly from active Monaco model
             const codeContent = fileModels[activeFilename].model.getValue();
             const statusText = document.getElementById('patch-status');
 
@@ -827,10 +810,7 @@
             if (!confirm("Are you sure you want to reset this lab session? Unsaved changes will be lost.")) return;
 
             try {
-                const res = await fetch(resetUrl, {
-                    method: 'POST'
-                });
-
+                const res = await fetch(resetUrl, { method: 'POST' });
                 const contentType = res.headers.get("content-type");
 
                 if (contentType && contentType.includes("application/json")) {
