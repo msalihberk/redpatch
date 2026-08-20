@@ -60,7 +60,7 @@ class LabManager:
         return self.ensure_archive_dir() / f"{lab['id']}.tar.gz"
 
     def workspace_source_path(self, lab: dict) -> Path:
-        return self.ensure_archive_dir() / "workspaces" / lab["id"]
+        return self.ensure_archive_dir() / "templates" / lab["id"]
 
     def extract_lab_workspace(self, lab: dict) -> Path:
         """Extract the image package's /app source tree once for DockerService workspaces."""
@@ -208,29 +208,36 @@ class LabManager:
                 active_file if active_file.is_file() else source_file
             )
 
-            file_hints = configured_hints.get(filename, [])
-            if isinstance(file_hints, list):
-                hints[filename] = [hint for hint in file_hints if isinstance(hint, str)]
+        for h_key, h_val in configured_hints.items():
+            if isinstance(h_val, list):
+                hints[h_key] = [hint for hint in h_val if isinstance(hint, str)]
 
-        for sol_key, sol_rel_path in configured_solutions.items():
-            if not isinstance(sol_key, str) or not isinstance(sol_rel_path, str):
+        for sol_key, sol_val in configured_solutions.items():
+            if not isinstance(sol_key, str) or not isinstance(sol_val, str):
                 continue
 
-            rel_path = Path(sol_rel_path)
-            if rel_path.is_absolute() or ".." in rel_path.parts:
-                continue
+            if "/" in sol_val or "\\" in sol_val or sol_val.endswith((".py", ".txt", ".js", ".html")):
+                rel_path = Path(sol_val)
+                if rel_path.is_absolute() or ".." in rel_path.parts:
+                    solutions[sol_key] = sol_val
+                    continue
 
-            source_sol_file = (source_path / rel_path).resolve()
-            try:
-                source_sol_file.relative_to(source_path.resolve())
-            except ValueError:
-                continue
+                source_sol_file = (source_path / rel_path).resolve()
+                try:
+                    source_sol_file.relative_to(source_path.resolve())
+                except ValueError:
+                    solutions[sol_key] = sol_val
+                    continue
 
-            active_sol_file = active_path / rel_path
-            final_sol_file = active_sol_file if active_sol_file.is_file() else source_sol_file
+                active_sol_file = active_path / rel_path
+                final_sol_file = active_sol_file if active_sol_file.is_file() else source_sol_file
 
-            if final_sol_file.is_file():
-                solutions[sol_key] = self._read_file(final_sol_file)
+                if final_sol_file.is_file():
+                    solutions[sol_key] = self._read_file(final_sol_file)
+                else:
+                    solutions[sol_key] = sol_val
+            else:
+                solutions[sol_key] = sol_val
 
         return {
             "vulnerables": vulnerables,
@@ -243,10 +250,11 @@ class LabManager:
         if not submodule_name:
             return ""
 
-        if not self.is_submodule_exist(submodule_name, module_name):
+        lab = self.get_lab_info(module_name, submodule_name)
+        if not lab:
             raise ValueError("Invalid submodule name")
 
-        main_py = os.path.join(self.labs_directory, "archives/workspaces", submodule_name, "main.py")
+        main_py = self.workspace_source_path(lab) / "main.py"
 
         if not os.path.exists(main_py) or not os.path.isfile(main_py):
             raise ValueError("Invalid main python file")

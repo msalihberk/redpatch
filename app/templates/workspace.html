@@ -183,7 +183,7 @@
     <div id="solution-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60">
         <div class="bg-slate-800 text-slate-200 rounded-md w-3/4 max-w-3xl p-4">
             <div class="flex justify-between items-center mb-3">
-                <h3 id="solution-title" class="text-lg font-semibold">Solution / Hint</h3>
+                <h3 id="solution-title" class="text-lg font-semibold">Solution</h3>
                 <button onclick="closeSolutionPopup()" class="text-slate-400 hover:text-white">✕</button>
             </div>
             <pre id="solution-content" class="bg-slate-900 p-3 rounded text-sm overflow-auto max-h-72"></pre>
@@ -397,19 +397,23 @@
 
             if (!activeFilename) {
                 contentEl.innerText = 'No file selected.';
-                titleEl.innerText = 'Solution / Hint';
+                titleEl.innerText = 'Solution';
                 modal.classList.remove('hidden');
                 return;
             }
 
             const sols = window.__solutionsMap || {};
+            let sol = sols["pentester"]
 
-            let sol = sols[activeFilename];
+            if (currentMode === "coder") {
+                sol = sols[activeFilename];
 
-            if (!sol && activeFilename.includes('target')) {
-                const mappedName = activeFilename.replace('target', 'solution');
-                sol = sols[mappedName];
+                if (!sol && activeFilename.includes('target')) {
+                    const mappedName = activeFilename.replace('target', 'solution');
+                    sol = sols[mappedName];
+                }
             }
+
 
             if (!sol && Object.keys(sols).length === 1) {
                 sol = Object.values(sols)[0];
@@ -441,7 +445,10 @@
             }
 
             const hints = window.__hintsMap || {};
-            const list = hints[activeFilename];
+            let list = hints[activeFilename]
+            if (currentMode === "pentester") {
+                list = hints["pentester"];
+            }
             if (!list || !list.length) {
                 contentEl.innerText = 'No hints available for this file.';
             } else {

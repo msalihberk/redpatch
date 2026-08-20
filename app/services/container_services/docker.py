@@ -98,11 +98,12 @@ class DockerService:
     def _prepare_workspace(self, force_reset: bool = False) -> None:
         if not self.original_path:
             return
+
         if force_reset and self.work_dir.exists():
             shutil.rmtree(self.work_dir, ignore_errors=True)
 
-        if not self.work_dir.exists():
-            shutil.copytree(self.original_path, self.work_dir)
+        if not self.work_dir.exists() or force_reset:
+            shutil.copytree(self.original_path, self.work_dir, dirs_exist_ok=True)
 
     def remove_workspace(self) -> None:
         if self.work_dir.exists():
@@ -143,6 +144,9 @@ class DockerService:
 
         if DockerHelper.is_running_in_docker():
             container_work_dir = f"/app/labs/archives/workspaces/{self.work_dir.name}"
+
+            module_name = self.entrypoint.replace(".py", "") if self.entrypoint else "main"
+
             start_command = (
                 f"sh -c 'cd {container_work_dir} && "
                 f"exec uvicorn {module_name}:app --host 0.0.0.0 --port {self.internal_port} --reload'"
@@ -155,7 +159,7 @@ class DockerService:
                 working_dir=container_work_dir,
                 volumes={
                     'redpatch_lab_tmp': {
-                        'bind': '/app/labs/archives/workspaces',
+                        'bind': '/app/labs/archives',
                         'mode': 'rw'
                     }
                 },

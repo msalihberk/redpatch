@@ -126,7 +126,7 @@ async def workspace(request: Request, module: str = None, submodule: str = None,
     source_path = manager.workspace_source_path(lab)
     work_dir = DockerService.get_work_dir_for(get_session_id(request), source_path)
     codes = manager.get_workspace_files(module, submodule, work_dir)
-    print(codes)
+    print(f"\n\n\n{codes}\n\n\n")
     return templates.TemplateResponse(request, "workspace.html", {"module": module, "submodule": submodule, "mode": mode, "codes": codes})
 
 @app.post("/api/workspace/ai-analysis")
