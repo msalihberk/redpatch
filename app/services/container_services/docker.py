@@ -3,20 +3,31 @@ import subprocess
 import time
 import pathlib
 import tempfile
+import os
 import docker
 from docker.errors import NotFound, APIError
 from app.services.container_services.helpers import DockerHelper
 
 
 class DockerService:
+    @staticmethod
+    def _get_base_workspace_dir() -> pathlib.Path:
+        if DockerHelper.is_running_in_docker():
+            base = pathlib.Path("/app/labs/archives/workspaces")
+        else:
+            base = pathlib.Path(tempfile.gettempdir()) / "redpatch_workspaces"
+
+        base.mkdir(parents=True, exist_ok=True)
+        return base
+
     def __init__(
-        self,
-        port: int,
-        path: str | None,
-        entrypoint: str | None,
-        runtime: str,
-        container_name: str | None = None,
-        session_id: str | None = None,
+            self,
+            port: int,
+            path: str | None,
+            entrypoint: str | None,
+            runtime: str,
+            container_name: str | None = None,
+            session_id: str | None = None,
     ):
         self.client = docker.from_env()
         self.internal_port = port
@@ -27,12 +38,12 @@ class DockerService:
 
         self.container_name = (
             container_name
-            or f"redpatch_{entrypoint.replace('.py', '').lower()}"
+            or f"redpatch_{entrypoint.replace('.py', '').lower()}" if entrypoint else f"redpatch_lab_{int(time.time())}"
         )
 
-        base_tmp = pathlib.Path("/app/sessions") if DockerHelper.is_running_in_docker() else pathlib.Path(tempfile.gettempdir())
-        workspace_name = self.original_path.name if self.original_path else self.container_name
-        self.work_dir = base_tmp / f"redpatch_sessions" / f"{self.session_id}_{workspace_name}"
+        base_tmp = self._get_base_workspace_dir()
+        workspace_name = f"{self.session_id}_{self.original_path.name}" if self.original_path else self.container_name
+        self.work_dir = base_tmp / workspace_name
 
         self.container = None
         self.mapped_host_port = None
@@ -49,7 +60,6 @@ class DockerService:
 
     @staticmethod
     def load_lab_image(lab: dict, archive: pathlib.Path) -> bool:
-        """Load the cached tar.gz through the Docker CLI (which supports gzip input)."""
         if DockerHelper.is_image_loaded(lab["image_tag"]):
             return False
         try:
@@ -86,19 +96,17 @@ class DockerService:
             return None
 
     def _prepare_workspace(self, force_reset: bool = False) -> None:
-        """Copies the original source code to the isolated temporary workspace."""
         if not self.original_path:
             return
         if force_reset and self.work_dir.exists():
-            shutil.rmtree(self.work_dir)
+            shutil.rmtree(self.work_dir, ignore_errors=True)
 
         if not self.work_dir.exists():
             shutil.copytree(self.original_path, self.work_dir)
 
     def remove_workspace(self) -> None:
-        """Removes the isolated temporary workspace."""
         if self.work_dir.exists():
-            shutil.rmtree(self.work_dir)
+            shutil.rmtree(self.work_dir, ignore_errors=True)
 
     def set_exist(self):
         existing = DockerService.get_container(self.container_name)
@@ -131,9 +139,10 @@ class DockerService:
             self.mapped_host_port = self._resolve_mapped_port()
             return self.mapped_host_port
 
-        module_name = self.entrypoint.replace(".py", "")
-        container_work_dir = f"/app/sessions/redpatch_sessions/{self.session_id}_{self.original_path.name}"
+        module_name = self.entrypoint.replace(".py", "") if self.entrypoint else "main"
+
         if DockerHelper.is_running_in_docker():
+            container_work_dir = f"/app/labs/archives/workspaces/{self.work_dir.name}"
             start_command = (
                 f"sh -c 'cd {container_work_dir} && "
                 f"exec uvicorn {module_name}:app --host 0.0.0.0 --port {self.internal_port} --reload'"
@@ -146,7 +155,7 @@ class DockerService:
                 working_dir=container_work_dir,
                 volumes={
                     'redpatch_lab_tmp': {
-                        'bind': '/app/sessions',
+                        'bind': '/app/labs/archives/workspaces',
                         'mode': 'rw'
                     }
                 },
@@ -179,14 +188,11 @@ class DockerService:
         self.mapped_host_port = self._resolve_mapped_port()
         return self.mapped_host_port
 
-
     def reset_lab(self) -> int:
-        """Resets the lab environment by stopping the container, purging the temp directory, and restarting."""
         self.stop()
         return self.start(force_reset=True)
 
     def patch_code(self, relative_filepath: str, content: str) -> bool:
-        """Writes updated code content directly to the isolated workspace."""
         try:
             self._prepare_workspace()
             target_file = (self.work_dir / relative_filepath).resolve()
@@ -243,7 +249,6 @@ class DockerService:
 
     @staticmethod
     def cleanup_all_redpatch_containers() -> None:
-        """Stops and removes all containers matching the 'redpatch_' prefix and cleans temp directories."""
         try:
             client = docker.from_env()
             containers = client.containers.list(all=True, filters={"name": "redpatch_"})
@@ -259,18 +264,12 @@ class DockerService:
         except Exception:
             pass
 
-        base_tmp = pathlib.Path("/app/sessions") if DockerHelper.is_running_in_docker() else pathlib.Path(tempfile.gettempdir())
-        sessions_dir = base_tmp / "redpatch_sessions"
-        if sessions_dir.exists():
-            shutil.rmtree(sessions_dir, ignore_errors=True)
+        base_tmp = DockerService._get_base_workspace_dir()
+        if base_tmp.exists():
+            shutil.rmtree(base_tmp, ignore_errors=True)
 
     @staticmethod
     def get_work_dir_for(session_id: str, original_path: str) -> pathlib.Path:
-        """Return the expected session work directory for a given original path and session id.
-
-        This is a helper to allow other components to read session-specific copies
-        without instantiating a full DockerService.
-        """
-        base_tmp = pathlib.Path("/app/sessions") if DockerHelper.is_running_in_docker() else pathlib.Path(tempfile.gettempdir())
+        base_tmp = DockerService._get_base_workspace_dir()
         original_name = pathlib.Path(original_path).resolve().name
-        return base_tmp / "redpatch_sessions" / f"{session_id}_{original_name}"
+        return base_tmp / f"{session_id}_{original_name}"

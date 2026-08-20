@@ -9,13 +9,18 @@ services:
       - "8000:8000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./app:/app
-      - lab_tmp:/app/sessions
-      - ./.env:/app/.env
+      - lab_tmp:/app/labs/archives/workspaces
+    env_file:
+      - path: .env
+        required: false
     environment:
       - PYTHONUNBUFFERED=1
+      - ARCHIVE_DIR=${ARCHIVE_DIR:-/app/labs/archives}
+      - CONFIG_JSON=${CONFIG_JSON:-/app/core/config.json}
     networks:
       - redpatch_net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 volumes:
   lab_tmp:

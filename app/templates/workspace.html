@@ -115,14 +115,16 @@
                     <button id="solution-btn" onclick="showSolutionPopup()" class="bg-slate-700 hover:bg-slate-600 text-white font-medium text-xs px-3 py-2 rounded shadow transition-all" title="Show Solution">
                         <i class="fa-solid fa-check-circle"></i> Solution
                     </button>
-                    <button onclick="applyPatch()" class="bg-patchRed hover:bg-red-600 text-white font-medium text-xs px-4 py-2 rounded shadow transition-all flex items-center gap-2">
-                        <i class="fa-solid fa-save"></i>
-                        Apply Changes
-                    </button>
-                    <button onclick="runAI()" class="bg-slate-900 hover:bg-slate-800 border border-indigo-500/40 text-indigo-400 font-medium text-xs px-4 py-2 rounded shadow transition-all flex items-center gap-2">
-                        <i class="fa-solid fa-microchip"></i>
-                        <span>Run AI Analysis</span>
-                    </button>
+                    {% if mode == 'coder' %}
+                        <button onclick="applyPatch()" class="bg-patchRed hover:bg-red-600 text-white font-medium text-xs px-4 py-2 rounded shadow transition-all flex items-center gap-2">
+                            <i class="fa-solid fa-save"></i>
+                            Apply Changes
+                        </button>
+                        <button onclick="runAI()" class="bg-slate-900 hover:bg-slate-800 border border-indigo-500/40 text-indigo-400 font-medium text-xs px-4 py-2 rounded shadow transition-all flex items-center gap-2">
+                            <i class="fa-solid fa-microchip"></i>
+                            <span>Run AI Analysis</span>
+                        </button>
+                    {% endif %}
                 </div>
             </div>
         </section>
@@ -598,7 +600,7 @@
             const modal = document.getElementById('ai-modal');
             const content = document.getElementById('ai-modal-content');
 
-            if (analysis.target_line && analysis.target_line > 0) {
+            if (analysis.target_line && analysis.target_line > 0 && analysis.vulnerability_found) {
                 const startLine = Math.max(1, analysis.target_line - 1);
                 const endLine = analysis.target_line + 1;
                 aiDecorations = monacoEditor.deltaDecorations(aiDecorations, [
@@ -627,11 +629,12 @@
                         </div>
                         ${statusBadge}
                     </div>
-
-                    ${analysis.target_line ? `
-                        <div class="text-xs text-slate-300 bg-slate-900/60 p-2 rounded border border-slate-700 font-mono">
-                            <strong class="text-red-400">Target Line:</strong> Line ${analysis.target_line}
-                        </div>
+                    ${analysis.vulnerability_found ? `
+                        ${analysis.target_line ? `
+                            <div class="text-xs text-slate-300 bg-slate-900/60 p-2 rounded border border-slate-700 font-mono">
+                                <strong class="text-red-400">Target Line:</strong> Line ${analysis.target_line}
+                            </div>
+                        ` : ''}
                     ` : ''}
 
                     <div class="bg-slate-900/80 p-3 rounded border border-slate-700 text-sm">
@@ -844,6 +847,7 @@
             } catch (e) {
                 alert("Network or script error while resetting lab: " + e.message);
             }
+            window.location.reload();
         }
 
         function showErrorPage(title, htmlContent) {

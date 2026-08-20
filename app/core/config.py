@@ -1,24 +1,61 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+import json
 
 load_dotenv()
 
+DEFAULT_CONFIG = {
+    "API_KEY": "",
+    "LLM_PROVIDER": "gemini",
+    "MODEL": "gemini-flash-lite-latest",
+}
+
+def create_default_config(file_path: str):
+    path = Path(file_path)
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    if not path.exists():
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(DEFAULT_CONFIG, f, indent=2, ensure_ascii=False)
+        print(f"Created default config.json: {path}")
+
 class Settings:
-    PROJECT_NAME: str = "RedPatch"
-    VERSION: str = "v0.4.4"
-    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "gemini").strip()
-    API_KEY: str = (os.getenv("API_KEY") or "").strip()
-    MODEL: str = os.getenv("MODEL", "gemini-flash-lite-latest").strip()
-    APP_ENV:str = os.getenv("APP_ENV", "dev").strip()
-    # Keep downloaded lab packages next to the manifest by default.  This is
-    # deliberately a host path as Docker receives the archive through `docker load`.
-    ARCHIVE_DIR: str = os.getenv(
-        "ARCHIVE_DIR", str(Path(__file__).resolve().parents[1] / "labs" / "archives")
-    ).strip()
+    def __init__(self):
+        self.PROJECT_NAME: str = "RedPatch"
+        self.VERSION: str = "v0.4.4"
+
+        self.CONFIG_JSON: str = os.getenv("CONFIG_JSON", "core/config.json").strip()
+        self.ARCHIVE_DIR: str = os.getenv("ARCHIVE_DIR", "labs/archives").strip()
+
+        self.LLM_PROVIDER: str = self.get_config_json("LLM_PROVIDER", "gemini")
+        self.API_KEY: str = self.get_config_json("API_KEY", "")
+        self.MODEL: str = self.get_config_json("MODEL", "gemini-flash-lite-latest")
 
     def validate(self):
         if not self.API_KEY:
             raise ValueError("API_KEY is not configured.")
+
+        self.validate_config()
+
+    def validate_config(self):
+        if not os.path.exists(self.CONFIG_JSON) or not os.path.isfile(self.CONFIG_JSON):
+            create_default_config(self.CONFIG_JSON)
+
+    def get_config_json(self, key:str, default:str):
+        self.validate_config()
+
+        with open(self.CONFIG_JSON, "r") as f:
+            json_config = json.load(f)
+            try:
+                if not key:
+                    raise ValueError("key is required")
+                return json_config[key]
+
+            except KeyError:
+                if not default:
+                    raise KeyError(f"Key {key} not found in config.json")
+                return default
 
 settings = Settings()

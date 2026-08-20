@@ -4,7 +4,7 @@ import os
 import shutil
 import tarfile
 from pathlib import Path
-from app.core.config import Settings
+from app.core.config import settings
 import requests
 
 class LabManager:
@@ -43,7 +43,7 @@ class LabManager:
 
     @staticmethod
     def ensure_archive_dir() -> Path:
-        archive_dir = Path(Settings.ARCHIVE_DIR)
+        archive_dir = Path(settings.ARCHIVE_DIR)
         archive_dir.mkdir(parents=True, exist_ok=True)
         return archive_dir
 

@@ -1,4 +1,3 @@
-import os.path
 import uuid
 import logging
 import base64
@@ -171,7 +170,6 @@ async def ai_analysis(payload: AIAnalysisRequest):
 
 @app.post("/api/labs/{module}/{lab_id}/launch")
 async def launch_lab(request: Request, module: str, lab_id: str):
-    """Manifest -> archive -> docker load -> existing Docker Manager."""
     lab = get_manifest_lab(module, lab_id)
     manager = LabManager()
     try:
@@ -189,7 +187,6 @@ async def launch_lab(request: Request, module: str, lab_id: str):
 
 @app.post("/api/labs/{module}/{lab_id}/download")
 async def download_lab(module: str, lab_id: str):
-    """Cache the archive only; image loading and container startup remain explicit actions."""
     get_manifest_lab(module, lab_id)
     try:
         _, _, downloaded = await run_in_threadpool(LabManager().download_lab, module, lab_id)
@@ -207,7 +204,7 @@ async def download_lab(module: str, lab_id: str):
 async def reset_lab(request: Request, module: str, lab_id: str):
     """Remove the active lab session; the user explicitly starts the next session."""
     lab = get_manifest_lab(module, lab_id)
-    if not await run_in_threadpool(LabManager.is_image_loaded, lab["image_tag"]):
+    if not await run_in_threadpool(DockerHelper.is_image_loaded, lab["image_tag"]):
         raise HTTPException(status_code=409, detail="Lab image is not loaded yet. Launch the lab first.")
     source_path = LabManager().workspace_source_path(lab)
     docker_service = manifest_docker_service(lab, get_session_id(request), source_path)
@@ -313,7 +310,7 @@ async def proxy_submodule(module: str, submodule: str, request: Request, path: s
                 status_code=resp.status_code,
                 headers=dict(resp.headers)
             )
-        except (httpx.HTTPError, Exception) as e:
+        except (httpx.HTTPError, Exception):
             return Response(
                 content=f'{{"status": "starting"}}',
                 status_code=200,

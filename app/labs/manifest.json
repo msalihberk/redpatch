@@ -11,7 +11,7 @@
           "image_tag": "redpatch-lab/sqli-0:v1.0.0",
           "port": 5000,
           "dev_path": "./labs/sqli-0",
-          "download_url": "http://localhost:4444/sqli-0.tar"
+          "download_url": "http://host.docker.internal:4444/sqli-0.tar"
         }
       ]
     }
