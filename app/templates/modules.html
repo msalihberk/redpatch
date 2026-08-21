@@ -32,7 +32,7 @@
         }
     </script>
 </head>
-<body class="bg-brand-dark text-slate-100 font-sans min-h-screen flex flex-col justify-between antialiased selection:bg-red-900 selection:text-white">
+<body class="bg-brand-dark text-slate-100 font-sans min-h-screen flex flex-col justify-between antialiased {% if mode == 'coder' %}selection:bg-emerald-900{% else %}selection:bg-red-900{% endif %} selection:text-white">
 
     <header class="border-b border-brand-border/60 bg-brand-dark/80 backdrop-blur-md sticky top-0 z-50 w-full">
         <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between w-full">
@@ -65,9 +65,9 @@
         <div class="flex flex-col md:flex-row md:items-center justify-between pb-8 mb-8 border-b border-brand-border gap-4">
             <div>
                 <div class="flex items-center space-x-2 text-xs font-mono text-brand-muted mb-2">
-                    <a href="{{ url_for('get_modules') }}{% if mode %}?mode={{ mode }}{% endif %}" class="hover:text-red-400 transition-colors">Categories</a>
+                    <a href="{{ url_for('get_modules') }}{% if mode %}?mode={{ mode }}{% endif %}" class="{% if mode == 'coder' %}hover:text-emerald-400{% else %}hover:text-red-400{% endif %} transition-colors">Categories</a>
                     <span>/</span>
-                    <span class="text-red-400 uppercase font-bold">{{ module }}</span>
+                    <span class="{% if mode == 'coder' %}text-emerald-400{% else %}text-red-400{% endif %} uppercase font-bold">{{ module }}</span>
                 </div>
                 <h1 class="text-2xl md:text-3xl font-bold text-white">{{ module }} Submodules</h1>
             </div>
@@ -84,16 +84,16 @@
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {% for sub in submodules %}
-            <div class="bg-brand-card border border-brand-border hover:border-red-500/40 rounded-xl p-6 transition-all duration-200 hover:-translate-y-1 flex flex-col justify-between group shadow-lg">
+            <div class="bg-brand-card border border-brand-border {% if mode == 'coder' %}hover:border-emerald-500/40{% else %}hover:border-red-500/40{% endif %} rounded-xl p-6 transition-all duration-200 hover:-translate-y-1 flex flex-col justify-between group shadow-lg">
                 <div>
                     <div class="flex items-center justify-between mb-4">
                         <span class="text-[11px] font-mono font-bold text-slate-300 bg-slate-800 px-2.5 py-0.5 rounded border border-brand-border uppercase tracking-wide">
                             {{ sub.title }}
                         </span>
-                        <i class="fa-solid fa-bug text-brand-muted group-hover:text-red-500 transition-colors"></i>
+                        <i class="fa-solid {% if mode == 'coder' %}fa-shield-halved group-hover:text-emerald-500{% else %}fa-bug group-hover:text-red-500{% endif %} text-brand-muted transition-colors"></i>
                     </div>
 
-                    <h2 class="text-lg font-bold text-slate-100 mb-2 group-hover:text-red-400 transition-colors">
+                    <h2 class="text-lg font-bold text-slate-100 mb-2 {% if mode == 'coder' %}group-hover:text-emerald-400{% else %}group-hover:text-red-400{% endif %} transition-colors">
                         {{ sub.title }}
                     </h2>
 
@@ -111,17 +111,24 @@
                         <span>&nbsp;Delete Lab Archive&nbsp;</span>
                         <i class="fa-solid fa-trash-can text-xs text-red-400"></i>
                     </button>
+                    {% if mode == 'coder' %}
+                    <a href="{{ url_for('workspace') }}?module={{ module }}&submodule={{ sub.id }}&mode={{ mode }}" class="w-full py-2.5 px-4 rounded bg-emerald-600/10 hover:bg-emerald-600/20 border border-emerald-500/30 hover:border-emerald-500/60 text-emerald-400 text-xs font-mono font-semibold transition-all flex items-center justify-between group/btn">
+                        <span>Launch Defense Workspace</span>
+                        <i class="fa-solid fa-terminal text-xs group-hover/btn:translate-x-1 transition-transform"></i>
+                    </a>
+                    {% else %}
                     <a href="{{ url_for('workspace') }}?module={{ module }}&submodule={{ sub.id }}{% if mode %}&mode={{ mode }}{% endif %}" class="w-full py-2.5 px-4 rounded bg-red-600/10 hover:bg-red-600/20 border border-red-500/30 hover:border-red-500/60 text-red-400 text-xs font-mono font-semibold transition-all flex items-center justify-between group/btn">
                         <span>Launch Lab Vector</span>
                         <i class="fa-solid fa-terminal text-xs group-hover/btn:translate-x-1 transition-transform"></i>
                     </a>
+                    {% endif %}
                 </div>
             </div>
             {% else %}
             <div class="col-span-full bg-brand-card border border-brand-border rounded-xl p-12 text-center">
                 <i class="fa-solid fa-layer-group text-amber-500 text-3xl mb-3"></i>
                 <h3 class="text-lg font-bold text-slate-200">No Submodules Found</h3>
-                <p class="text-xs text-brand-muted mt-1">There are no registered submodules under category <code class="text-red-400">{{ module }}</code>.</p>
+                <p class="text-xs text-brand-muted mt-1">There are no registered submodules under category <code class="{% if mode == 'coder' %}text-emerald-400{% else %}text-red-400{% endif %}">{{ module }}</code>. Please check your <code class="{% if mode == 'coder' %}text-emerald-400{% else %}text-red-400{% endif %}">manifest.json</code> configuration.</p>
             </div>
             {% endfor %}
         </div>
@@ -130,7 +137,7 @@
         <!-- MAIN CATEGORIES VIEW -->
         <div class="flex flex-col md:flex-row md:items-center justify-between pb-8 mb-8 border-b border-brand-border gap-4">
             <div>
-                <span class="text-xs font-mono text-red-400 font-semibold uppercase tracking-wider">Module Registry</span>
+                <span class="text-xs font-mono {% if mode == 'coder' %}text-emerald-400{% else %}text-red-400{% endif %} font-semibold uppercase tracking-wider">Module Registry</span>
                 <h1 class="text-2xl md:text-3xl font-bold text-white mt-1">Vulnerability Categories</h1>
             </div>
             <div class="flex items-center space-x-3 text-xs font-mono text-brand-muted">
@@ -142,16 +149,16 @@
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {% for name, desc in modules %}
-            <div class="bg-brand-card border border-brand-border hover:border-red-500/40 rounded-xl p-6 transition-all duration-200 hover:-translate-y-1 flex flex-col justify-between group shadow-lg">
+            <div class="bg-brand-card border border-brand-border {% if mode == 'coder' %}hover:border-emerald-500/40{% else %}hover:border-red-500/40{% endif %} rounded-xl p-6 transition-all duration-200 hover:-translate-y-1 flex flex-col justify-between group shadow-lg">
                 <div>
                     <div class="flex items-center justify-between mb-4">
-                        <span class="text-[11px] font-mono font-bold text-red-400 bg-red-500/10 px-2.5 py-0.5 rounded border border-red-500/20 uppercase tracking-wide">
+                        <span class="text-[11px] font-mono font-bold {% if mode == 'coder' %}text-emerald-400 bg-emerald-500/10 border-emerald-500/20{% else %}text-red-400 bg-red-500/10 border-red-500/20{% endif %} px-2.5 py-0.5 rounded border uppercase tracking-wide">
                             {{ name }}
                         </span>
-                        <i class="fa-solid fa-folder-tree text-brand-muted group-hover:text-red-500 transition-colors"></i>
+                        <i class="fa-solid fa-folder-tree text-brand-muted {% if mode == 'coder' %}group-hover:text-emerald-500{% else %}group-hover:text-red-500{% endif %} transition-colors"></i>
                     </div>
 
-                    <h2 class="text-lg font-bold text-slate-100 mb-2 group-hover:text-red-400 transition-colors">
+                    <h2 class="text-lg font-bold text-slate-100 mb-2 {% if mode == 'coder' %}group-hover:text-emerald-400{% else %}group-hover:text-red-400{% endif %} transition-colors">
                         {{ name }}
                     </h2>
 
@@ -161,7 +168,7 @@
                 </div>
 
                 <div class="pt-4 border-t border-brand-border/60">
-                    <a href="{{ url_for('get_modules') }}?action=submodules&module={{ name }}{% if mode %}&mode={{ mode }}{% endif %}" class="w-full py-2.5 px-4 rounded bg-slate-800 hover:bg-red-600/20 border border-brand-border hover:border-red-500/50 text-slate-200 hover:text-red-400 text-xs font-mono font-semibold transition-all flex items-center justify-between group/btn">
+                    <a href="{{ url_for('get_modules') }}?action=submodules&module={{ name }}{% if mode %}&mode={{ mode }}{% endif %}" class="w-full py-2.5 px-4 rounded bg-slate-800 {% if mode == 'coder' %}hover:bg-emerald-600/20 hover:border-emerald-500/50 hover:text-emerald-400{% else %}hover:bg-red-600/20 hover:border-red-500/50 hover:text-red-400{% endif %} border border-brand-border text-slate-200 text-xs font-mono font-semibold transition-all flex items-center justify-between group/btn">
                         <span>Explore Submodules</span>
                         <i class="fa-solid fa-chevron-right text-xs group-hover/btn:translate-x-1 transition-transform"></i>
                     </a>
@@ -171,7 +178,7 @@
             <div class="col-span-full bg-brand-card border border-brand-border rounded-xl p-12 text-center">
                 <i class="fa-solid fa-triangle-exclamation text-amber-500 text-3xl mb-3"></i>
                 <h3 class="text-lg font-bold text-slate-200">No Security Modules Discovered</h3>
-                <p class="text-xs text-brand-muted mt-1">Please ensure subdirectories with valid <code class="text-red-400">config.json</code> files are present in the modules directory.</p>
+                <p class="text-xs text-brand-muted mt-1">Please ensure valid security modules are defined in your <code class="{% if mode == 'coder' %}text-emerald-400{% else %}text-red-400{% endif %}">manifest.json</code> file.</p>
             </div>
             {% endfor %}
         </div>
@@ -331,7 +338,7 @@
             }
             catch (error) {
                 console.error('An error occurred whilst checking the status :', error);
-                }
+            }
         }
 
         async function downloadLab(button) {

@@ -5,7 +5,7 @@ import pathlib
 import tempfile
 import os
 import docker
-from docker.errors import NotFound, APIError
+from docker.errors import NotFound, APIError, DockerException
 from app.services.container_services.helpers import DockerHelper
 
 
@@ -62,21 +62,21 @@ class DockerService:
     def load_lab_image(lab: dict, archive: pathlib.Path) -> bool:
         if DockerHelper.is_image_loaded(lab["image_tag"]):
             return False
+
         try:
-            result = subprocess.run(
-                ["docker", "load", "--input", str(archive)],
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=600,
-            )
-        except (OSError, subprocess.SubprocessError) as exc:
+            client = docker.from_env()
+
+            with open(archive, "rb") as archive_file:
+                client.images.load(archive_file.read())
+
+        except (DockerException, APIError, OSError) as exc:
             raise RuntimeError(f"Docker image load failed: {exc}") from exc
+
         if not DockerHelper.is_image_loaded(lab["image_tag"]):
             raise RuntimeError(
-                f"Docker loaded the archive but manifest image '{lab['image_tag']}' was not found. "
-                f"Docker output: {result.stdout.strip() or result.stderr.strip()}"
+                f"Docker loaded the archive but manifest image '{lab['image_tag']}' was not found."
             )
+
         return True
 
     @staticmethod

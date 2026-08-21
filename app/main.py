@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
+from starlette.responses import RedirectResponse
 
 from app.services.ai.ai_agent import RedTeamAgent
 from app.services.container_services.docker import DockerService
@@ -126,7 +127,6 @@ async def workspace(request: Request, module: str = None, submodule: str = None,
     source_path = manager.workspace_source_path(lab)
     work_dir = DockerService.get_work_dir_for(get_session_id(request), source_path)
     codes = manager.get_workspace_files(module, submodule, work_dir)
-    print(f"\n\n\n{codes}\n\n\n")
     return templates.TemplateResponse(request, "workspace.html", {"module": module, "submodule": submodule, "mode": mode, "codes": codes})
 
 @app.post("/api/workspace/ai-analysis")
@@ -229,6 +229,7 @@ async def workspace_reset(request: Request, module: str = None, submodule: str =
     if not module or not submodule:
         raise HTTPException(status_code=404, detail="Module or submodule not specified")
     return await reset_lab(request, module, submodule)
+
 @app.api_route("/proxy/{module}/{submodule}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 @app.api_route("/proxy/{module}/{submodule}/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 async def proxy_submodule(module: str, submodule: str, request: Request, path: str = ""):
@@ -247,10 +248,21 @@ async def proxy_submodule(module: str, submodule: str, request: Request, path: s
     if requested_method not in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
         raise HTTPException(status_code=405, detail="Unsupported proxy request method")
 
+    if not path and not request.url.path.endswith("/"):
+        redirect_url = str(request.url.replace(path=f"{request.url.path}/"))
+        return RedirectResponse(url=redirect_url, status_code=307)
+
+    clean_path = path.lstrip("/")
+
     if DockerHelper.is_running_in_docker():
-        target_url = f"http://{container_name}:{internal_port}/{path}"
+        base_target = f"http://{container_name}:{internal_port}"
     else:
-        target_url = f"http://127.0.0.1:{container_port}/{path}"
+        base_target = f"http://127.0.0.1:{container_port}"
+
+    if clean_path:
+        target_url = f"{base_target}/{clean_path}"
+    else:
+        target_url = f"{base_target}/"
 
     control_params = {"_redpatch_method", "_redpatch_headers", "_redpatch_json_body"}
     query_params = [
@@ -269,7 +281,7 @@ async def proxy_submodule(module: str, submodule: str, request: Request, path: s
         except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise HTTPException(status_code=400, detail=f"Invalid {parameter_name} metadata") from exc
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(follow_redirects=True) as client:
         body = await request.body()
         headers = {k: v for k, v in request.headers.items() if k.lower() not in ("host", "content-length")}
 
@@ -282,11 +294,11 @@ async def proxy_submodule(module: str, submodule: str, request: Request, path: s
                 normalized_name = str(name).lower()
                 normalized_value = str(value)
                 if (
-                    normalized_name in blocked_headers
-                    or "\r" in str(name)
-                    or "\n" in str(name)
-                    or "\r" in normalized_value
-                    or "\n" in normalized_value
+                        normalized_name in blocked_headers
+                        or "\r" in str(name)
+                        or "\n" in str(name)
+                        or "\r" in normalized_value
+                        or "\n" in normalized_value
                 ):
                     continue
                 headers[str(name)] = normalized_value
@@ -305,10 +317,16 @@ async def proxy_submodule(module: str, submodule: str, request: Request, path: s
                 content=body,
                 timeout=10.0
             )
+
+            response_headers = {
+                k: v for k, v in resp.headers.items()
+                if k.lower() not in ("content-length", "transfer-encoding", "content-encoding")
+            }
+
             return Response(
                 content=resp.content,
                 status_code=resp.status_code,
-                headers=dict(resp.headers)
+                headers=response_headers
             )
         except (httpx.HTTPError, Exception):
             return Response(

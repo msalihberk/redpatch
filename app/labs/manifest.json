@@ -1,19 +1,49 @@
 {
   "labs": {
-    "SQLi" : {
-      "description" : "SQL Injection (SQLi) is the manipulation of a database through malicious SQL code injected into user input fields.",
-      "submodules" : [
-        {
-          "id": "sqli-0",
-          "title": "SQL Injection - Authentication Bypass",
-          "description": "This laboratory examines the authentication bypass vulnerability caused by adding user inputs directly into SQL queries.",
-          "category": "web",
-          "image_tag": "redpatch-lab/sqli-0:v1.0.0",
-          "port": 5000,
-          "dev_path": "./labs/sqli-0",
-          "download_url": "http://host.docker.internal:4444/sqli-0.tar"
-        }
-      ]
-    }
+      "SQLi": {
+        "description": "SQL Injection (SQLi) is the manipulation of a database through malicious SQL code injected into user input fields.",
+        "submodules": [
+          {
+            "id": "sqli-0",
+            "title": "SQL Injection - Authentication Bypass",
+            "description": "This laboratory examines the authentication bypass vulnerability caused by adding user inputs directly into SQL queries.",
+            "category": "web",
+            "image_tag": "redpatch-lab/sqli-0:v1.0.0",
+            "port": 5000,
+            "dev_path": "./labs/sqli-0",
+            "download_url": "http://host.docker.internal:4444/sqli-0.tar"
+          }
+        ]
+      },
+      "IDOR": {
+        "description": "Insecure Direct Object References (IDOR) occur when an application provides direct access to objects based on user-supplied input without proper access control checks.",
+        "submodules": [
+          {
+            "id": "idor-0",
+            "title": "IDOR - Access Control & Unauthorized Profile Inspection",
+            "description": "This laboratory demonstrates how weak object-level authorization allows low-privileged users to inspect sensitive records of other accounts.",
+            "category": "web",
+            "image_tag": "redpatch-lab/idor-0:v1.0.0",
+            "port": 5001,
+            "dev_path": "./labs/idor-0",
+            "download_url": "http://host.docker.internal:4444/idor-0.tar"
+          }
+        ]
+      },
+      "CommandInjection": {
+        "description": "OS Command Injection allows an attacker to execute arbitrary operating system commands on the server running an application.",
+        "submodules": [
+          {
+            "id": "cmdi-0",
+            "title": "Command Injection - Arbitrary OS Execution via Network Diagnostics",
+            "description": "This laboratory explores OS command injection risks in network utilities and demonstrates input sanitization and strict parameter isolation fixes.",
+            "category": "web",
+            "image_tag": "redpatch-lab/cmdi-0:v1.0.0",
+            "port": 5002,
+            "dev_path": "./labs/cmdi-0",
+            "download_url": "http://host.docker.internal:4444/cmdi-0.tar"
+          }
+        ]
+      }
   }
 }

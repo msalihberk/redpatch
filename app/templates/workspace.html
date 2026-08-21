@@ -130,16 +130,29 @@
         {% endif %}
 
         <section class="{% if mode == 'pentester' %}w-full{% else %}w-1/2{% endif %} flex flex-col bg-slate-950 relative">
-            <div class="h-10 bg-slate-900/60 border-b border-borderBg px-4 flex items-center justify-between text-xs text-slate-400">
-                <div class="flex items-center space-x-2 font-mono">
-                    <i class="fa-solid fa-desktop text-emerald-400"></i>
-                    <span>Target Canvas (Live Container App)</span>
-                </div>
-                <div class="flex items-center space-x-3">
-                    <button onclick="reloadIframe()" class="hover:text-white transition-colors flex items-center gap-1" title="Reload Canvas">
-                        <i class="fa-solid fa-arrows-rotate"></i> Reload
+            <div class="h-10 bg-slate-900/60 border-b border-borderBg px-3 flex items-center justify-between text-xs text-slate-400 gap-2">
+                <div class="flex items-center space-x-1.5 shrink-0">
+                    <button onclick="goBackIframe()" class="hover:text-white transition-colors p-1" title="Back">
+                        <i class="fa-solid fa-arrow-left"></i>
                     </button>
-                    <a id="external-link" href="/proxy/{{ module }}/{{ submodule }}" target="_blank" class="hover:text-white transition-colors" title="Open in New Tab">
+                    <button onclick="goForwardIframe()" class="hover:text-white transition-colors p-1" title="Forward">
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                    <button onclick="reloadIframe()" class="hover:text-white transition-colors p-1" title="Reload">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                    </button>
+                </div>
+
+                <div class="flex-1 flex items-center bg-slate-950 px-2 py-1 rounded border border-slate-700 focus-within:border-indigo-500">
+                    <i class="fa-solid fa-lock text-slate-500 text-[10px] mr-2"></i>
+                    <input id="browser-url-bar" type="text" onkeydown="handleUrlBarKey(event)" class="w-full bg-transparent text-slate-200 focus:outline-none font-mono text-xs" placeholder="about:blank" />
+                    <button onclick="navigateIframeFromInput()" class="text-slate-400 hover:text-white ml-1">
+                        <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                    </button>
+                </div>
+
+                <div class="flex items-center space-x-2 shrink-0">
+                    <a id="external-link" href="/proxy/{{ module }}/{{ submodule }}" target="_blank" class="hover:text-white transition-colors p-1" title="Open in New Tab">
                         <i class="fa-solid fa-up-right-from-square"></i>
                     </a>
                 </div>
@@ -504,7 +517,7 @@
                     const res = await fetch(targetProxyUrl, { method: 'GET' });
                     const containerStatus = res.headers.get('X-Container-Status');
                     if (res.ok && containerStatus !== 'starting') {
-                        iframe.src = targetProxyUrl;
+                        setIframeSrc(targetProxyUrl);
                         overlay.classList.add('hidden');
                         statusIndicator.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
                         statusText.innerText = "CONTAINER ACTIVE";
@@ -531,12 +544,89 @@
             pollServer();
         }
 
-        function reloadIframe() {
+        function setIframeSrc(url) {
             const iframe = document.getElementById('target-canvas');
-            if (iframe.src && iframe.src !== "about:blank") {
-                iframe.src = targetProxyUrl;
+            if (!iframe) return;
+            iframe.src = url;
+            updateUrlBarDisplay(url);
+        }
+
+        function updateUrlBarDisplay(url) {
+            const input = document.getElementById('browser-url-bar');
+            const externalLink = document.getElementById('external-link');
+            if (!input) return;
+
+            try {
+                const parsedUrl = new URL(url, window.location.origin);
+                input.value = parsedUrl.pathname + parsedUrl.search + parsedUrl.hash;
+                if (externalLink) externalLink.href = input.value;
+            } catch (e) {
+                input.value = url;
+                if (externalLink) externalLink.href = url;
             }
         }
+
+        function handleUrlBarKey(event) {
+            if (event.key === 'Enter') {
+                navigateIframeFromInput();
+            }
+        }
+
+        function navigateIframeFromInput() {
+            const input = document.getElementById('browser-url-bar');
+            if (!input || !input.value) return;
+
+            let targetPath = input.value.trim();
+            if (targetPath === 'about:blank') {
+                setIframeSrc('about:blank');
+                return;
+            }
+
+            if (!targetPath.startsWith('http://') && !targetPath.startsWith('https://')) {
+                if (!targetPath.startsWith('/')) {
+                    targetPath = '/' + targetPath;
+                }
+            }
+
+            setIframeSrc(targetPath);
+        }
+
+        function goBackIframe() {
+            try {
+                const iframe = document.getElementById('target-canvas');
+                iframe.contentWindow.history.back();
+            } catch (e) {}
+        }
+
+        function goForwardIframe() {
+            try {
+                const iframe = document.getElementById('target-canvas');
+                iframe.contentWindow.history.forward();
+            } catch (e) {}
+        }
+
+        function reloadIframe() {
+            const iframe = document.getElementById('target-canvas');
+            if (iframe && iframe.src && iframe.src !== "about:blank") {
+                iframe.src = iframe.src;
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const iframe = document.getElementById('target-canvas');
+            if (iframe) {
+                iframe.addEventListener('load', () => {
+                    try {
+                        const currentPath = iframe.contentWindow.location.href;
+                        if (currentPath && currentPath !== 'about:blank') {
+                            updateUrlBarDisplay(currentPath);
+                        }
+                    } catch (e) {
+                        if (iframe.src) updateUrlBarDisplay(iframe.src);
+                    }
+                });
+            }
+        });
 
         let aiDecorations = [];
 
@@ -717,7 +807,7 @@
             targetUrl.search = queryParams.toString();
 
             if (method === 'GET') {
-                iframe.src = targetUrl.toString();
+                setIframeSrc(targetUrl.toString());
                 return;
             }
 
@@ -733,6 +823,8 @@
             if (usesJsonBody) {
                 targetUrl.searchParams.set('_redpatch_json_body', encodeProxyMetadata(reqJsonBody));
             }
+
+            updateUrlBarDisplay(targetUrl.toString());
 
             const form = document.createElement('form');
             form.method = 'POST';
@@ -817,7 +909,7 @@
                     const data = await res.json();
 
                     if (res.ok && data.status === "success") {
-                        document.getElementById('target-canvas').src = 'about:blank';
+                        setIframeSrc('about:blank');
                         document.getElementById('canvas-overlay').classList.remove('hidden');
                         document.getElementById('start-btn').classList.remove('hidden');
                         document.getElementById('loading-spinner').classList.add('hidden');
