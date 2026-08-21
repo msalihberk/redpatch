@@ -371,9 +371,10 @@
 
         async function fetchWorkspaceFiles() {
             try {
-                const res = await fetch(`/api/workspace/files?module=${encodeURIComponent(currentModule)}&submodule=${encodeURIComponent(currentSubmodule)}`);
+                const res = await fetch(`/api/${encodeURIComponent(currentModule)}/${encodeURIComponent(currentSubmodule)}/lab-data`);
                 if (!res.ok) return null;
-                return await res.json();
+                const jsonRes = await res.json();
+                return jsonRes.data || null;
             } catch (e) {
                 return null;
             }
@@ -402,7 +403,7 @@
 
             if (!activeFilename && currentMode !== 'pentester') activeFilename = Object.keys(fileModels)[0] || null;
 
-            if (activeFilename && monacoEditor && monacoEditor.getModel() !== fileModels[activeFilename].model) {
+            if (activeFilename && monacoEditor && fileModels[activeFilename] && monacoEditor.getModel() !== fileModels[activeFilename].model) {
                 monacoEditor.setModel(fileModels[activeFilename].model);
             }
 
@@ -543,6 +544,8 @@
                         overlay.classList.add('hidden');
                         statusIndicator.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
                         statusText.innerText = "CONTAINER ACTIVE";
+
+                        await refreshDatas()
 
                         if (currentMode !== 'pentester') {
                             const files = await fetchWorkspaceFiles();
@@ -1050,8 +1053,6 @@
             window.location.reload();
         }
 
-        const flagsData = rawFilesData.flags || {};
-
         async function submitFlag() {
             const input = document.getElementById('flag-input');
             if (!input) return;
@@ -1133,6 +1134,20 @@
 
             badge.className = 'inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-mono font-semibold text-emerald-400 border border-emerald-500/20';
             dot.className = 'h-1.5 w-1.5 rounded-full bg-emerald-400';
+        }
+
+        async function refreshDatas() {
+            try {
+                const filesData = await fetchWorkspaceFiles();
+                if (filesData) {
+                    await reloadEditorFiles(filesData);
+                    return true;
+                }
+                return false;
+            } catch (e) {
+                console.error("Error refreshing lab data:", e);
+                return false;
+            }
         }
 
         function showErrorPage(title, htmlContent) {

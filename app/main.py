@@ -101,7 +101,7 @@ async def index(request: Request):
 
 @app.get("/documentation/contributing", response_class=HTMLResponse)
 async def contributing_guide(request: Request):
-    return templates.TemplateResponse(request, "contributing.html")
+    return templates.TemplateResponse(request, "documentation.html")
 
 @app.get("/modules", response_class=HTMLResponse)
 async def get_modules(request: Request, action: str = None, module: str = None, mode: str = None):
@@ -128,6 +128,15 @@ async def workspace(request: Request, module: str = None, submodule: str = None,
     work_dir = DockerService.get_work_dir_for(get_session_id(request), source_path)
     codes = manager.get_workspace_files(module, submodule, work_dir)
     return templates.TemplateResponse(request, "workspace.html", {"module": module, "submodule": submodule, "mode": mode, "codes": codes})
+
+@app.get("/api/{module}/{lab_id}/lab-data")
+async def get_lab_data(module: str, lab_id: str):
+    return JSONResponse(
+        status_code=200,
+        content={
+            "data" : LabManager().get_workspace_files(module, lab_id)
+        }
+    )
 
 @app.get("/api/check_flag/{module}/{lab_id}/{flag}")
 async def check_flag(module: str, lab_id: str, flag: str):
@@ -354,16 +363,6 @@ async def proxy_submodule(module: str, submodule: str, request: Request, path: s
                     "X-Container-Status": "starting"
                 }
             )
-
-
-@app.get("/api/workspace/files")
-async def workspace_files(request: Request, module: str = None, submodule: str = None):
-    session_id = get_session_id(request)
-    lab = get_manifest_lab(module, submodule)
-    manager = LabManager()
-    source_path = manager.workspace_source_path(lab)
-    tmp_workdir = DockerService.get_work_dir_for(session_id, source_path)
-    return JSONResponse(status_code=200, content=manager.get_workspace_files(module, submodule, tmp_workdir))
 
 @app.post("/api/workspace/patch")
 async def workspace_patch(request: Request, payload: PatchRequest):
