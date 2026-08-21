@@ -129,6 +129,23 @@ async def workspace(request: Request, module: str = None, submodule: str = None,
     codes = manager.get_workspace_files(module, submodule, work_dir)
     return templates.TemplateResponse(request, "workspace.html", {"module": module, "submodule": submodule, "mode": mode, "codes": codes})
 
+@app.get("/api/check_flag/{module}/{lab_id}/{flag}")
+async def check_flag(module: str, lab_id: str, flag: str):
+    if not module or not lab_id or not flag:
+        raise HTTPException(status_code=404, detail="Module or submodule not specified")
+
+    lab_mngr = LabManager()
+
+    if not lab_mngr.is_module_exist(module) or not lab_mngr.is_submodule_exist(module, lab_id):
+        raise HTTPException(status_code=404, detail="Module or submodule not exist")
+    
+    return JSONResponse(
+        status_code=200,
+        content={
+            "is_correct": lab_mngr.check_flag(module, lab_id, flag)
+        }
+    )
+
 @app.post("/api/workspace/ai-analysis")
 async def ai_analysis(payload: AIAnalysisRequest):
     module, submodule, code = payload.module, payload.submodule, payload.code
@@ -224,7 +241,7 @@ async def delete_lab(request: Request, lab_id: str):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.api_route("/api/workspace/reset", methods=["POST"])
+@app.post("/api/workspace/reset")
 async def workspace_reset(request: Request, module: str = None, submodule: str = None):
     if not module or not submodule:
         raise HTTPException(status_code=404, detail="Module or submodule not specified")

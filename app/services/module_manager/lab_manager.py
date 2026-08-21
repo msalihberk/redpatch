@@ -163,14 +163,14 @@ class LabManager:
         return [{**lab, "module": main} for lab in self.modules[main]["submodules"]]
 
     def get_workspace_files(self, module_name, submodule_name, workspace_path=None):
-        """Return editable files, hints, and configured solutions for one submodule."""
+        """Return editable files, hints, flags and configured solutions for one submodule."""
         lab = self.get_lab_info(module_name, submodule_name)
         if not lab:
             return None
 
         source_path = self.workspace_source_path(lab)
         if not source_path.is_dir():
-            return {"vulnerables": {}, "solutions": {}, "hints": {}}
+            return {"vulnerables": {}, "solutions": {}, "hints": {}, "target_paths": {}, "flags": {}}
 
         active_path = Path(workspace_path) if workspace_path else source_path
         config = self._load_json(source_path / "config.json")
@@ -178,6 +178,7 @@ class LabManager:
         configured_hints = config.get("hints", {})
         configured_solutions = config.get("solutions", {})
         configured_targets = config.get("targets", {})
+        configured_flags = config.get("flags", {})
 
         if not isinstance(configured_hints, dict):
             configured_hints = {}
@@ -185,8 +186,10 @@ class LabManager:
             configured_solutions = {}
         if not isinstance(configured_targets, dict):
             configured_targets = {}
+        if not isinstance(configured_flags, dict):
+            configured_flags = {}
 
-        vulnerables, hints, solutions, target_paths = {}, {}, {}, {}
+        vulnerables, hints, solutions, target_paths, flags = {}, {}, {}, {}, {}
 
         for filename, configured_path in configured_targets.items():
             if not isinstance(filename, str) or not isinstance(configured_path, str):
@@ -211,6 +214,10 @@ class LabManager:
         for h_key, h_val in configured_hints.items():
             if isinstance(h_val, list):
                 hints[h_key] = [hint for hint in h_val if isinstance(hint, str)]
+
+        for flag_key, flag_val in configured_flags.items():
+            if isinstance(flag_key, str) and isinstance(flag_val, str):
+                flags[flag_key] = flag_val
 
         for sol_key, sol_val in configured_solutions.items():
             if not isinstance(sol_key, str) or not isinstance(sol_val, str):
@@ -244,7 +251,11 @@ class LabManager:
             "solutions": solutions,
             "hints": hints,
             "target_paths": target_paths,
+            "flags": flags
         }
+
+    def check_flag(self, module:str, lab_id:str, flag:str):
+        return self.get_workspace_files(module, lab_id)["flags"] == flag
 
     def get_routes_from_submodule(self, submodule_name: str, module_name:str) -> str:
         if not submodule_name:

@@ -145,7 +145,7 @@
 
                 <div class="flex-1 flex items-center bg-slate-950 px-2 py-1 rounded border border-slate-700 focus-within:border-indigo-500">
                     <i class="fa-solid fa-lock text-slate-500 text-[10px] mr-2"></i>
-                    <input id="browser-url-bar" type="text" onkeydown="handleUrlBarKey(event)" class="w-full bg-transparent text-slate-200 focus:outline-none font-mono text-xs" placeholder="about:blank" />
+                    <input id="browser-url-bar" type="text" onkeydown="handleUrlBarKey(event)" class="w-full bg-transparent text-slate-200 focus:outline-none font-mono text-xs" placeholder="/" />
                     <button onclick="navigateIframeFromInput()" class="text-slate-400 hover:text-white ml-1">
                         <i class="fa-solid fa-arrow-right-to-bracket"></i>
                     </button>
@@ -219,7 +219,8 @@
         const currentModule = "{{ module }}";
         const currentSubmodule = "{{ submodule }}";
         const currentMode = "{{ mode }}";
-        const targetProxyUrl = `/proxy/${currentModule}/${currentSubmodule}`;
+        const proxyPrefix = `/proxy/${currentModule}/${currentSubmodule}`;
+        const targetProxyUrl = proxyPrefix;
         const launchUrl = `/api/labs/${encodeURIComponent(currentModule)}/${encodeURIComponent(currentSubmodule)}/launch`;
         const resetUrl = `/api/labs/${encodeURIComponent(currentModule)}/${encodeURIComponent(currentSubmodule)}/reset`;
 
@@ -484,7 +485,6 @@
             const startBtn = document.getElementById('start-btn');
             const spinner = document.getElementById('loading-spinner');
             const overlay = document.getElementById('canvas-overlay');
-            const iframe = document.getElementById('target-canvas');
             const statusIndicator = document.getElementById('status-indicator');
             const statusText = document.getElementById('status-text');
             const loadingMessage = document.getElementById('loading-message');
@@ -517,7 +517,7 @@
                     const res = await fetch(targetProxyUrl, { method: 'GET' });
                     const containerStatus = res.headers.get('X-Container-Status');
                     if (res.ok && containerStatus !== 'starting') {
-                        setIframeSrc(targetProxyUrl);
+                        setIframeSrc('/');
                         overlay.classList.add('hidden');
                         statusIndicator.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
                         statusText.innerText = "CONTAINER ACTIVE";
@@ -544,49 +544,143 @@
             pollServer();
         }
 
-        function setIframeSrc(url) {
-            const iframe = document.getElementById('target-canvas');
-            if (!iframe) return;
-            iframe.src = url;
-            updateUrlBarDisplay(url);
-        }
-
-        function updateUrlBarDisplay(url) {
-            const input = document.getElementById('browser-url-bar');
-            const externalLink = document.getElementById('external-link');
-            if (!input) return;
-
-            try {
-                const parsedUrl = new URL(url, window.location.origin);
-                input.value = parsedUrl.pathname + parsedUrl.search + parsedUrl.hash;
-                if (externalLink) externalLink.href = input.value;
-            } catch (e) {
-                input.value = url;
-                if (externalLink) externalLink.href = url;
-            }
-        }
-
         function handleUrlBarKey(event) {
-            if (event.key === 'Enter') {
+            if (event.key === 'Enter' || event.keyCode === 13) {
+                event.preventDefault();
                 navigateIframeFromInput();
             }
         }
 
-        function navigateIframeFromInput() {
-            const input = document.getElementById('browser-url-bar');
-            if (!input || !input.value) return;
+        document.addEventListener("DOMContentLoaded", () => {
+            const urlInput = document.getElementById('browser-url-bar');
+            if (urlInput) {
+                urlInput.addEventListener('keydown', handleUrlBarKey);
+            }
 
-            let targetPath = input.value.trim();
-            if (targetPath === 'about:blank') {
-                setIframeSrc('about:blank');
+            const iframe = document.getElementById('target-canvas');
+            if (iframe) {
+                iframe.addEventListener('load', () => {
+                    try {
+                        const currentHref = iframe.contentWindow.location.href;
+                        if (currentHref && currentHref !== 'about:blank') {
+                            const internalPath = proxyToInternalUrl(currentHref);
+                            updateUrlBarDisplay(internalPath);
+                        }
+                    } catch (e) {
+                        if (iframe.src) {
+                            const internalPath = proxyToInternalUrl(iframe.src);
+                            updateUrlBarDisplay(internalPath);
+                        }
+                    }
+                });
+            }
+        });
+
+        function internalToProxyUrl(userPath) {
+            if (!userPath || userPath === 'about:blank') return 'about:blank';
+
+            let rawPath = String(userPath).trim().replace(/\\/g, '/');
+
+            try {
+                const dummyBase = "http://localhost";
+                const parsed = new URL(rawPath, dummyBase);
+
+                let normalizedPath = parsed.pathname;
+
+                const segments = normalizedPath.split('/').filter(Boolean);
+                const safeSegments = [];
+
+                for (const segment of segments) {
+                    if (segment === '..') {
+                        if (safeSegments.length > 0) safeSegments.pop();
+                    } else if (segment !== '.') {
+                        safeSegments.push(segment);
+                    }
+                }
+
+                let cleanPath = '/' + safeSegments.join('/');
+                if (normalizedPath.endsWith('/') && cleanPath !== '/') {
+                    cleanPath += '/';
+                }
+
+                return proxyPrefix + cleanPath + parsed.search + parsed.hash;
+            } catch (e) {
+                return proxyPrefix + '/';
+            }
+        }
+
+        function proxyToInternalUrl(fullUrl) {
+            if (!fullUrl || fullUrl === 'about:blank') return '/';
+            try {
+                const parsed = new URL(fullUrl, window.location.origin);
+                let pathname = parsed.pathname;
+
+                if (pathname.startsWith(proxyPrefix)) {
+                    pathname = pathname.substring(proxyPrefix.length);
+                }
+
+                const segments = pathname.split('/').filter(Boolean);
+                const safeSegments = [];
+                for (const segment of segments) {
+                    if (segment === '..') {
+                        if (safeSegments.length > 0) safeSegments.pop();
+                    } else if (segment !== '.') {
+                        safeSegments.push(segment);
+                    }
+                }
+
+                let cleanPath = '/' + safeSegments.join('/');
+                if (pathname.endsWith('/') && cleanPath !== '/') {
+                    cleanPath += '/';
+                }
+
+                return cleanPath + parsed.search + parsed.hash;
+            } catch (e) {
+                return '/';
+            }
+        }
+
+        function setIframeSrc(userPath) {
+            const iframe = document.getElementById('target-canvas');
+            if (!iframe) return;
+
+            if (userPath === 'about:blank') {
+                iframe.src = 'about:blank';
+                updateUrlBarDisplay('about:blank');
                 return;
             }
 
-            if (!targetPath.startsWith('http://') && !targetPath.startsWith('https://')) {
-                if (!targetPath.startsWith('/')) {
-                    targetPath = '/' + targetPath;
-                }
+            const proxyUrl = internalToProxyUrl(userPath);
+            iframe.src = proxyUrl;
+
+            const internalDisplay = proxyToInternalUrl(proxyUrl);
+            updateUrlBarDisplay(internalDisplay);
+        }
+
+        function updateUrlBarDisplay(displayPath) {
+            const input = document.getElementById('browser-url-bar');
+            const externalLink = document.getElementById('external-link');
+            if (!input) return;
+
+            if (displayPath === 'about:blank') {
+                input.value = 'about:blank';
+                if (externalLink) externalLink.href = proxyPrefix;
+                return;
             }
+
+            let formatted = displayPath;
+            if (!formatted.startsWith('/')) formatted = '/' + formatted;
+
+            input.value = formatted;
+            if (externalLink) externalLink.href = internalToProxyUrl(formatted);
+        }
+
+        function navigateIframeFromInput() {
+            const input = document.getElementById('browser-url-bar');
+            if (!input) return;
+
+            let targetPath = input.value.trim();
+            if (!targetPath) targetPath = '/';
 
             setIframeSrc(targetPath);
         }
@@ -617,12 +711,16 @@
             if (iframe) {
                 iframe.addEventListener('load', () => {
                     try {
-                        const currentPath = iframe.contentWindow.location.href;
-                        if (currentPath && currentPath !== 'about:blank') {
-                            updateUrlBarDisplay(currentPath);
+                        const currentHref = iframe.contentWindow.location.href;
+                        if (currentHref && currentHref !== 'about:blank') {
+                            const internalPath = proxyToInternalUrl(currentHref);
+                            updateUrlBarDisplay(internalPath);
                         }
                     } catch (e) {
-                        if (iframe.src) updateUrlBarDisplay(iframe.src);
+                        if (iframe.src) {
+                            const internalPath = proxyToInternalUrl(iframe.src);
+                            updateUrlBarDisplay(internalPath);
+                        }
                     }
                 });
             }
@@ -807,7 +905,8 @@
             targetUrl.search = queryParams.toString();
 
             if (method === 'GET') {
-                setIframeSrc(targetUrl.toString());
+                const internalPath = proxyToInternalUrl(targetUrl.toString());
+                setIframeSrc(internalPath);
                 return;
             }
 
@@ -824,7 +923,7 @@
                 targetUrl.searchParams.set('_redpatch_json_body', encodeProxyMetadata(reqJsonBody));
             }
 
-            updateUrlBarDisplay(targetUrl.toString());
+            updateUrlBarDisplay(proxyToInternalUrl(targetUrl.toString()));
 
             const form = document.createElement('form');
             form.method = 'POST';
