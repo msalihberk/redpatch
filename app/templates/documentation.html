@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RedPatch | Contributing Guide</title>
+    <title>RedPatch | Documentation</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', path='favicon.ico') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -34,109 +34,172 @@
 
     <main class="max-w-7xl mx-auto px-6 py-10 md:py-14 grid grid-cols-1 lg:grid-cols-[15rem_minmax(0,1fr)] gap-10">
         <aside class="lg:sticky lg:top-24 lg:self-start rounded-xl border border-brand-border bg-brand-card/60 p-5">
-            <p class="text-[11px] font-mono font-semibold tracking-widest text-red-400 uppercase mb-4">Guide index</p>
+            <p class="text-[11px] font-mono font-semibold tracking-widest text-red-400 uppercase mb-4">Documentation</p>
+            
+            <p class="text-[10px] font-mono font-semibold tracking-widest text-brand-muted uppercase mb-2 mt-4">General Usage</p>
+            <nav class="space-y-1 text-sm mb-4">
+                <a href="#overview" class="block rounded px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">Platform Overview</a>
+                <a href="#modes" class="block rounded px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">Coder vs Pentester</a>
+                <a href="#playing-labs" class="block rounded px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">Playing Labs</a>
+                <a href="#workspace-usage" class="block rounded px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">Workspace & AI</a>
+            </nav>
+
+            <p class="text-[10px] font-mono font-semibold tracking-widest text-brand-muted uppercase mb-2">Developer Guide</p>
             <nav class="space-y-1 text-sm">
-                <a href="#overview" class="block rounded px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">Overview</a>
-                <a href="#local-setup" class="block rounded px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">Local setup</a>
-                <a href="#module-system" class="block rounded px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">Module system</a>
-                <a href="#new-lab" class="block rounded px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">Create a lab</a>
-                <a href="#workspace" class="block rounded px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">Workspace contract</a>
-                <a href="#quality" class="block rounded px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">Quality & safety</a>
+                <a href="#local-setup" class="block rounded px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">Local Setup</a>
+                <a href="#manifest-system" class="block rounded px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">Manifest System</a>
+                <a href="#lab-architecture" class="block rounded px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">Lab Architecture</a>
+                <a href="#lab-config" class="block rounded px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">Lab Configuration</a>
             </nav>
         </aside>
 
         <article class="min-w-0">
+            <!-- GENERAL USAGE GUIDE -->
             <section id="overview" class="border-b border-brand-border pb-10 mb-10">
                 <div class="inline-flex items-center gap-2 px-3 py-1 rounded border border-red-500/20 bg-red-500/5 text-red-400 text-xs font-mono tracking-wider uppercase mb-5">
                     <i class="fa-solid fa-book-open"></i>
-                    <span>Open-source contribution guide</span>
+                    <span>General Usage Guide</span>
                 </div>
-                <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-white">Build safe, useful RedPatch labs.</h1>
-                <p class="mt-4 text-brand-muted leading-relaxed max-w-3xl">This guide covers the current module contract, local workflow, and review expectations for contributors. Keep every lab educational, self-contained, reproducible, and limited to systems you own or are authorized to test.</p>
+                <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-white">Master application security.</h1>
+                <p class="mt-4 text-brand-muted leading-relaxed max-w-3xl">RedPatch is an interactive learning platform that allows you to safely exploit, analyze, and patch vulnerable applications in isolated Docker containers.</p>
                 <div class="mt-6 grid sm:grid-cols-3 gap-3 text-xs font-mono">
-                    <div class="rounded-lg border border-brand-border bg-brand-card p-4"><span class="block text-emerald-400 mb-1">01 / ISOLATED</span>Use fictional data and local containers.</div>
-                    <div class="rounded-lg border border-brand-border bg-brand-card p-4"><span class="block text-blue-400 mb-1">02 / REPRODUCIBLE</span>Make vulnerable and fixed flows testable.</div>
-                    <div class="rounded-lg border border-brand-border bg-brand-card p-4"><span class="block text-red-400 mb-1">03 / FOCUSED</span>Keep one security lesson per lab.</div>
+                    <div class="rounded-lg border border-brand-border bg-brand-card p-4"><span class="block text-emerald-400 mb-1">01 / EXPLOIT</span>Test realistic vulnerabilities.</div>
+                    <div class="rounded-lg border border-brand-border bg-brand-card p-4"><span class="block text-blue-400 mb-1">02 / ANALYZE</span>Use AI to understand flaws.</div>
+                    <div class="rounded-lg border border-brand-border bg-brand-card p-4"><span class="block text-red-400 mb-1">03 / PATCH</span>Fix code dynamically.</div>
                 </div>
             </section>
 
-            <section id="local-setup" class="mb-12 scroll-mt-24">
-                <h2 class="text-xl font-bold text-white mb-3">Run the project locally</h2>
-                <p class="text-sm text-brand-muted leading-relaxed mb-4">The host application uses FastAPI; individual labs run in Docker. Install the root dependencies and start the development server. Docker must be running before launching a lab from the workspace.</p>
-                <pre class="overflow-x-auto rounded-xl border border-brand-border bg-slate-950 p-5 text-xs leading-6 text-slate-300"><code><span class="text-slate-500"># Create and activate a virtual environment for your shell</span>
+            <section id="modes" class="mb-12 scroll-mt-24">
+                <h2 class="text-xl font-bold text-white mb-3">Coder Mode vs. Pentester Mode</h2>
+                <p class="text-sm text-brand-muted leading-relaxed mb-4">RedPatch offers two distinct modes of engagement to accommodate different learning objectives:</p>
+                <div class="grid md:grid-cols-2 gap-6 mt-4">
+                    <div class="rounded-xl border border-brand-border bg-brand-card p-5">
+                        <div class="flex items-center gap-2 mb-3 text-emerald-400">
+                            <i class="fa-solid fa-code"></i>
+                            <h3 class="font-bold text-white">Coder Mode</h3>
+                        </div>
+                        <p class="text-sm text-brand-muted leading-relaxed">In Coder Mode, your primary task is defense. Using the built-in code editor in the Workspace, modify target files to patch security vulnerabilities. After patching, you can trigger <strong>AI Analysis</strong> to confirm if your fix is correct and secure.</p>
+                    </div>
+                    <div class="rounded-xl border border-brand-border bg-brand-card p-5">
+                        <div class="flex items-center gap-2 mb-3 text-red-400">
+                            <i class="fa-solid fa-user-secret"></i>
+                            <h3 class="font-bold text-white">Pentester Mode</h3>
+                        </div>
+                        <p class="text-sm text-brand-muted leading-relaxed">In Pentester Mode, you take on the offensive role. The goal is to discover and exploit the vulnerability within the application to retrieve a hidden <strong>flag</strong>. Submit the discovered flag in the Workspace input field to pass the lab.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="playing-labs" class="mb-12 scroll-mt-24">
+                <h2 class="text-xl font-bold text-white mb-3">Playing Labs</h2>
+                <p class="text-sm text-brand-muted leading-relaxed mb-4">Navigate to the <strong>Modules</strong> page to explore available vulnerability categories like SQL Injection (SQLi), IDOR, and Command Injection. Select a specific lab to begin.</p>
+                <ul class="space-y-3 text-sm text-brand-muted leading-relaxed list-disc list-inside">
+                    <li><strong>Launch:</strong> Clicking launch will download the lab image if not already cached, and spin up an isolated Docker container for your session.</li>
+                    <li><strong>Proxy:</strong> Lab applications are proxied securely through RedPatch, giving you immediate web access to the vulnerable app.</li>
+                    <li><strong>Flags:</strong> Use the application to find hidden flags (e.g., <code class="text-red-300 font-mono text-xs">redpatch{...}</code>) which prove successful exploitation of the vulnerability. Submit these flags in the Workspace to verify your exploit.</li>
+                </ul>
+            </section>
+
+            <section id="workspace-usage" class="mb-12 scroll-mt-24 pb-10 border-b border-brand-border">
+                <h2 class="text-xl font-bold text-white mb-3">Workspace & AI Integration</h2>
+                <p class="text-sm text-brand-muted leading-relaxed mb-4">Once a lab is running, enter the <strong>Workspace</strong>. The workspace provides an IDE-like environment to view vulnerable code files and apply patches.</p>
+                <ul class="space-y-3 text-sm text-brand-muted leading-relaxed list-disc list-inside">
+                    <li><strong>Code Editor:</strong> Modify the target files to implement security patches. The container dynamically applies your changes.</li>
+                    <li><strong>AI Analysis:</strong> If you're stuck, click "Analyze with AI". RedPatch's integrated AI Agent will review the code and provide detailed insights on the vulnerability and potential fixes.</li>
+                    <li><strong>Hints & Solutions:</strong> Access step-by-step hints or view the official solution file if you need immediate guidance.</li>
+                    <li><strong>Reset:</strong> If you break the application, use the Reset Lab feature to destroy the container and start fresh.</li>
+                </ul>
+            </section>
+
+            <!-- DEVELOPER GUIDE -->
+            <section id="local-setup" class="mb-12 scroll-mt-24 pt-4">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded border border-blue-500/20 bg-blue-500/5 text-blue-400 text-xs font-mono tracking-wider uppercase mb-5">
+                    <i class="fa-solid fa-code"></i>
+                    <span>Developer Guide</span>
+                </div>
+                <h2 class="text-xl font-bold text-white mb-3">Local Setup</h2>
+                <p class="text-sm text-brand-muted leading-relaxed mb-4">The host application runs on FastAPI, managing lab lifecycles via Docker. Make sure Docker Desktop or the Docker daemon is running before starting the development server.</p>
+                <pre class="overflow-x-auto rounded-xl border border-brand-border bg-slate-950 p-5 text-xs leading-6 text-slate-300"><code><span class="text-slate-500"># Create and activate a virtual environment</span>
 python -m venv .venv
 pip install -r requirements.txt
 uvicorn app.main:app --reload</code></pre>
-                <p class="mt-4 text-sm text-brand-muted">AI analysis also requires the environment variables used by <code class="text-red-300 font-mono text-xs">app/core/config.py</code>, including <code class="text-red-300 font-mono text-xs">API_KEY</code>. Never commit a <code class="text-red-300 font-mono text-xs">.env</code> file or credentials.</p>
+                <p class="mt-4 text-sm text-brand-muted">To enable the AI Analysis features, you must configure a <code class="text-red-300 font-mono text-xs">.env</code> file in the root directory with the necessary API keys defined in <code class="text-red-300 font-mono text-xs">app/core/config.py</code>.</p>
             </section>
 
-            <section id="module-system" class="mb-12 scroll-mt-24">
-                <h2 class="text-xl font-bold text-white mb-3">Module system</h2>
-                <p class="text-sm text-brand-muted leading-relaxed mb-5">RedPatch scans <code class="text-red-300 font-mono text-xs">app/modules</code>. A category is registered by its own <code class="text-red-300 font-mono text-xs">config.json</code>; its labs live in the category's <code class="text-red-300 font-mono text-xs">submodules</code> directory.</p>
-                <pre class="overflow-x-auto rounded-xl border border-brand-border bg-slate-950 p-5 text-xs leading-6 text-slate-300"><code>app/modules/
-└── SQLI/
-    ├── config.json
-    └── submodules/
-        └── BASIC_SQLI/
-            ├── config.json
-            ├── main.py
-            ├── requirements.txt
-            └── codes/
-                ├── vulnerables/
-                └── solutions/</code></pre>
+            <section id="manifest-system" class="mb-12 scroll-mt-24">
+                <h2 class="text-xl font-bold text-white mb-3">The Manifest System</h2>
+                <p class="text-sm text-brand-muted leading-relaxed mb-5">RedPatch uses a centralized <code class="text-red-300 font-mono text-xs">app/labs/manifest.json</code> to catalog available modules. Labs are downloaded as Docker image archives and extracted automatically.</p>
+                <pre class="mt-5 overflow-x-auto rounded-xl border border-brand-border bg-slate-950 p-5 text-xs leading-6 text-slate-300"><code>{
+  "labs": {
+    "SQLi": {
+      "description": "SQL Injection vulnerabilities.",
+      "submodules": [
+        {
+          "id": "sqli-0",
+          "title": "Auth Bypass",
+          "category": "web",
+          "image_tag": "redpatch-lab/sqli-0:v1.0.0",
+          "port": 5000,
+          "download_url": "http://host.docker.internal:4444/sqli-0.tar"
+        }
+      ]
+    }
+  }
+}</code></pre>
                 <div class="mt-5 overflow-x-auto rounded-xl border border-brand-border">
                     <table class="w-full text-left text-sm">
-                        <thead class="bg-slate-900 text-xs font-mono uppercase text-slate-400"><tr><th class="px-4 py-3">Field</th><th class="px-4 py-3">Rule</th></tr></thead>
+                        <thead class="bg-slate-900 text-xs font-mono uppercase text-slate-400"><tr><th class="px-4 py-3">Field</th><th class="px-4 py-3">Description</th></tr></thead>
                         <tbody class="divide-y divide-brand-border text-brand-muted">
-                            <tr><td class="px-4 py-3 font-mono text-red-300">name</td><td class="px-4 py-3">Non-empty and unique. Names are normalized to uppercase.</td></tr>
-                            <tr><td class="px-4 py-3 font-mono text-red-300">runtime</td><td class="px-4 py-3">Docker image used to run the lab, such as <code class="font-mono text-xs">python:3.11-slim</code>.</td></tr>
-                            <tr><td class="px-4 py-3 font-mono text-red-300">entrypoint</td><td class="px-4 py-3">Python file whose stem is loaded by Uvicorn. <code class="font-mono text-xs">main.py</code> must expose <code class="font-mono text-xs">app</code>.</td></tr>
-                            <tr><td class="px-4 py-3 font-mono text-red-300">internal_port</td><td class="px-4 py-3">Positive TCP port used inside the lab container.</td></tr>
-                            <tr><td class="px-4 py-3 font-mono text-red-300">codes</td><td class="px-4 py-3">Maps editable file names to their role.</td></tr>
+                            <tr><td class="px-4 py-3 font-mono text-red-300">id</td><td class="px-4 py-3">Unique identifier for the lab (used for URLs and container names).</td></tr>
+                            <tr><td class="px-4 py-3 font-mono text-red-300">image_tag</td><td class="px-4 py-3">Docker image tag to load and run.</td></tr>
+                            <tr><td class="px-4 py-3 font-mono text-red-300">port</td><td class="px-4 py-3">Internal TCP port the lab listens on.</td></tr>
+                            <tr><td class="px-4 py-3 font-mono text-red-300">download_url</td><td class="px-4 py-3">URL to the .tar or .tar.gz image archive.</td></tr>
                         </tbody>
                     </table>
                 </div>
             </section>
 
-            <section id="new-lab" class="mb-12 scroll-mt-24">
-                <h2 class="text-xl font-bold text-white mb-3">Create a new lab</h2>
+            <section id="lab-architecture" class="mb-12 scroll-mt-24">
+                <h2 class="text-xl font-bold text-white mb-3">Lab Image Architecture</h2>
+                <p class="text-sm text-brand-muted leading-relaxed mb-4">Labs are distributed as standard Docker images. RedPatch extracts the <code class="text-red-300 font-mono text-xs">/app</code> directory from the image to use as the workspace volume.</p>
                 <ol class="space-y-3 text-sm text-brand-muted leading-relaxed list-decimal list-inside">
-                    <li>Create a category under <code class="text-red-300 font-mono text-xs">app/modules</code>, or select an existing category.</li>
-                    <li>Create <code class="text-red-300 font-mono text-xs">submodules/&lt;SUBMODULE&gt;</code> and add its application, dependencies, templates, and code samples.</li>
-                    <li>Register the lab in the parent category configuration.</li>
-                    <li>Confirm that it appears in the Modules page, starts in Docker, and supports both vulnerable and fixed flows.</li>
+                    <li>Your lab Docker image must contain an <code class="text-red-300 font-mono text-xs">/app</code> directory.</li>
+                    <li>It must include a <code class="text-red-300 font-mono text-xs">/app/main.py</code> which acts as the entrypoint for Uvicorn/FastAPI based labs.</li>
+                    <li>It must contain a <code class="text-red-300 font-mono text-xs">/app/config.json</code> that defines the workspace targets, hints, and flags.</li>
                 </ol>
-                <pre class="mt-5 overflow-x-auto rounded-xl border border-brand-border bg-slate-950 p-5 text-xs leading-6 text-slate-300"><code>{
-  "name": "SQLI",
-  "description": "Training labs for SQL injection vulnerabilities.",
-  "sub_modules": [{
-    "name": "BASIC_SQLI",
-    "description": "Authentication bypass caused by SQL string concatenation.",
-    "runtime": "python:3.11-slim",
-    "entrypoint": "main.py",
-    "internal_port": 5000,
-    "codes": { "target_snippet.py": "vulnerable" }
-  }]
-}</code></pre>
-                <div class="mt-5 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-100/80 leading-relaxed"><i class="fa-solid fa-triangle-exclamation text-amber-400 mr-2"></i><strong class="text-amber-300">Important:</strong> the runner creates a session-specific copy of the lab and starts <code class="font-mono text-xs">uvicorn &lt;entrypoint-stem&gt;:app</code>. It does not build the submodule's Dockerfile. Put needed Python packages in the lab's <code class="font-mono text-xs">requirements.txt</code>.</div>
+                <div class="mt-5 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-100/80 leading-relaxed"><i class="fa-solid fa-triangle-exclamation text-amber-400 mr-2"></i><strong class="text-amber-300">Important:</strong> RedPatch extracts the source tree to allow patching, and mounts it into the container at runtime. Never hardcode absolute host paths.</div>
             </section>
 
-            <section id="workspace" class="mb-12 scroll-mt-24">
-                <h2 class="text-xl font-bold text-white mb-3">Workspace contract</h2>
-                <p class="text-sm text-brand-muted leading-relaxed">The <code class="text-red-300 font-mono text-xs">codes</code> map also authorizes workspace patches. Each key is a file name that must occur only once in the submodule. Files marked <code class="text-red-300 font-mono text-xs">vulnerable</code> are shown in the editor; configure hints and reference fixes in the submodule's own <code class="text-red-300 font-mono text-xs">config.json</code>.</p>
+            <section id="lab-config" class="mb-12 scroll-mt-24">
+                <h2 class="text-xl font-bold text-white mb-3">Workspace Configuration (config.json)</h2>
+                <p class="text-sm text-brand-muted leading-relaxed">Inside your lab's <code class="text-red-300 font-mono text-xs">/app</code> directory, the <code class="text-red-300 font-mono text-xs">config.json</code> defines how the RedPatch Workspace interacts with the lab code, dividing configuration for both coders and pentesters.</p>
                 <pre class="mt-5 overflow-x-auto rounded-xl border border-brand-border bg-slate-950 p-5 text-xs leading-6 text-slate-300"><code>{
-  "hints": { "target_snippet.py": ["Use parameter binding."] },
-  "solutions": { "target_snippet.py": "codes/solutions/solution_snippet.py" }
+  "hints": {
+    "target_snippet.py": [
+      "Do not pass raw user input directly to shell execution functions.",
+      "Use safe alternatives or validate/sanitize input against a strict allowlist."
+    ],
+    "pentester": [
+      "Check how the input is handled in the ping command execution.",
+      "Try appending command separators like ';' or '&&' followed by a system command."
+    ]
+  },
+  "solutions": {
+    "solution_snippet.py": "codes/solutions/solution_snippet.py",
+    "pentester": "127.0.0.1 && cat /app/flag.txt"
+  },
+  "targets": {
+    "target_snippet.py": "codes/vulnerables/target_snippet.py"
+  },
+  "flags": {
+    "flag_1": "redpatch{command_injection_rce_compromised_xxxxx}"
+  }
 }</code></pre>
-            </section>
-
-            <section id="quality" class="scroll-mt-24 rounded-xl border border-brand-border bg-brand-card p-6">
-                <h2 class="text-xl font-bold text-white mb-4">Quality, safety, and pull requests</h2>
-                <ul class="space-y-3 text-sm text-brand-muted leading-relaxed">
-                    <li><i class="fa-solid fa-check text-emerald-400 mr-2"></i>Use fictional, non-sensitive data and keep exploits inside the target container.</li>
-                    <li><i class="fa-solid fa-check text-emerald-400 mr-2"></i>Do not hard-code host ports; RedPatch maps the internal port automatically.</li>
-                    <li><i class="fa-solid fa-check text-emerald-400 mr-2"></i>Test module discovery, the workspace, container startup, reset behavior, and both lesson outcomes before submitting.</li>
-                    <li><i class="fa-solid fa-check text-emerald-400 mr-2"></i>Keep pull requests focused and explain the lesson, expected behavior, and validation steps.</li>
+                <ul class="mt-5 space-y-3 text-sm text-brand-muted leading-relaxed list-disc list-inside">
+                    <li><code class="text-red-300 font-mono text-xs">targets</code>: Maps display filenames to relative paths in the workspace. These files become editable.</li>
+                    <li><code class="text-red-300 font-mono text-xs">hints</code>: Contains arrays of hints for target files (Coder Mode) and a separate <code class="text-red-300 font-mono text-xs">pentester</code> array of hints (Pentester Mode).</li>
+                    <li><code class="text-red-300 font-mono text-xs">solutions</code>: Contains solution file mappings (Coder Mode) and a <code class="text-red-300 font-mono text-xs">pentester</code> exploit payload string (Pentester Mode).</li>
+                    <li><code class="text-red-300 font-mono text-xs">flags</code>: Defines flags the user must find to prove exploitation.</li>
                 </ul>
             </section>
         </article>
@@ -144,7 +207,7 @@ uvicorn app.main:app --reload</code></pre>
 
     <footer class="border-t border-brand-border/60 bg-brand-dark py-6 text-xs text-brand-muted font-mono">
         <div class="max-w-7xl mx-auto px-6 flex items-center justify-between gap-4">
-            <span>RedPatch Contribution Guide</span>
+            <span>RedPatch Documentation</span>
             <a href="{{ url_for('index') }}" class="hover:text-slate-200 transition-colors">RETURN HOME</a>
         </div>
     </footer>
