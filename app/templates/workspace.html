@@ -84,6 +84,10 @@
                     <i class="fa-solid fa-paper-plane text-[10px]"></i> Submit
                 </button>
             </div>
+            <span id="lab-status-badge" class="inline-flex items-center gap-1.5 rounded-full bg-rose-500/10 px-2.5 py-1 text-xs font-mono font-semibold text-rose-400 border border-rose-500/20">
+                <span id="lab-status-dot" class="h-1.5 w-1.5 rounded-full bg-rose-400"></span>
+                <span id="lab-status-text">UNSOLVED</span>
+            </span>
             <div class="h-4 w-px bg-borderBg"></div>
             {% endif %}
 
@@ -1093,6 +1097,7 @@
             }
 
             if (isCorrect) {
+                setLabStatusSolved()
                 icon.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 text-xl bg-emerald-900/50 text-emerald-400 border border-emerald-500/50";
                 icon.innerHTML = '<i class="fa-solid fa-trophy"></i>';
                 title.innerText = "Congratulations!";
@@ -1115,6 +1120,19 @@
                 modal.classList.add('hidden');
                 modal.classList.remove('flex');
             }
+        }
+
+        function setLabStatusSolved() {
+            const badge = document.getElementById('lab-status-badge');
+            const dot = document.getElementById('lab-status-dot');
+            const text = document.getElementById('lab-status-text');
+
+            if (!badge || !dot || !text) return;
+
+            text.textContent = 'SOLVED';
+
+            badge.className = 'inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-mono font-semibold text-emerald-400 border border-emerald-500/20';
+            dot.className = 'h-1.5 w-1.5 rounded-full bg-emerald-400';
         }
 
         function showErrorPage(title, htmlContent) {
