@@ -77,6 +77,13 @@
             <button id="solution-btn" onclick="showSolutionPopup()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-3 py-1.5 rounded border border-emerald-500/50 shadow transition-all flex items-center gap-1.5" title="Show Solution">
                 <i class="fa-solid fa-user-ninja"></i> Solution / PoC
             </button>
+            <div class="flex items-center space-x-2 bg-slate-900/90 px-2.5 py-1 rounded border border-slate-700">
+                <i class="fa-solid fa-flag text-amber-500 text-xs"></i>
+                <input id="flag-input" type="text" placeholder="redpatch{...}" onkeydown="if(event.key==='Enter') submitFlag()" class="bg-transparent text-xs text-slate-200 focus:outline-none font-mono w-44" />
+                <button onclick="submitFlag()" class="bg-amber-600 hover:bg-amber-500 text-white text-xs px-2.5 py-1 rounded font-medium transition-colors flex items-center gap-1">
+                    <i class="fa-solid fa-paper-plane text-[10px]"></i> Submit
+                </button>
+            </div>
             <div class="h-4 w-px bg-borderBg"></div>
             {% endif %}
 
@@ -203,16 +210,27 @@
     </div>
 
     {% if mode != 'pentester' %}
-    <div id="ai-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-        <div class="bg-slate-800 text-slate-200 rounded-lg w-11/12 max-w-2xl p-5 border border-slate-700 shadow-2xl">
-            <div id="ai-modal-content"></div>
-            <div class="mt-5 text-right border-t border-slate-700/60 pt-3">
-                <button onclick="closeAIModal()" class="bg-slate-700 hover:bg-slate-600 text-white text-xs px-4 py-2 rounded font-medium transition-colors">
+        <div id="ai-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+            <div class="bg-slate-800 text-slate-200 rounded-lg w-11/12 max-w-2xl p-5 border border-slate-700 shadow-2xl">
+                <div id="ai-modal-content"></div>
+                <div class="mt-5 text-right border-t border-slate-700/60 pt-3">
+                    <button onclick="closeAIModal()" class="bg-slate-700 hover:bg-slate-600 text-white text-xs px-4 py-2 rounded font-medium transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div id="flag-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+            <div class="bg-slate-800 text-slate-200 rounded-lg w-full max-w-sm p-5 border border-slate-700 shadow-2xl transform transition-all text-center">
+                <div id="flag-modal-icon" class="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 text-xl"></div>
+                <h3 id="flag-modal-title" class="text-base font-bold mb-1"></h3>
+                <p id="flag-modal-message" class="text-xs text-slate-400 mb-5 font-mono"></p>
+                <button onclick="closeFlagModal()" class="w-full bg-slate-700 hover:bg-slate-600 text-white text-xs py-2 rounded font-medium transition-colors">
                     Close
                 </button>
             </div>
         </div>
-    </div>
     {% endif %}
 
     <script>
@@ -1026,6 +1044,77 @@
                 alert("Network or script error while resetting lab: " + e.message);
             }
             window.location.reload();
+        }
+
+        const flagsData = rawFilesData.flags || {};
+
+        async function submitFlag() {
+            const input = document.getElementById('flag-input');
+            if (!input) return;
+
+            const flagValue = input.value.trim();
+            if (!flagValue) {
+                showFlagModal(false, "Please enter a flag value.");
+                return;
+            }
+
+            try {
+                const endpoint = `/api/check_flag/${encodeURIComponent(currentModule)}/${encodeURIComponent(currentSubmodule)}/${encodeURIComponent(flagValue)}`;
+                const response = await fetch(endpoint);
+
+                if (!response.ok) {
+                    showFlagModal(false, "Flag verification request failed.");
+                    return;
+                }
+
+                const data = await response.json();
+
+                if (data.is_correct) {
+                    showFlagModal(true, "Congratulations! Correct flag, you successfully exploited the vulnerability.");
+                    input.classList.remove("border-red-500");
+                    input.classList.add("border-emerald-500", "text-emerald-400");
+                } else {
+                    showFlagModal(false, "Incorrect flag! Check the hints and try again.");
+                }
+            } catch (error) {
+                showFlagModal(false, "An error occurred while communicating with the server.");
+            }
+        }
+
+        function showFlagModal(isCorrect, message) {
+            const modal = document.getElementById('flag-modal');
+            const icon = document.getElementById('flag-modal-icon');
+            const title = document.getElementById('flag-modal-title');
+            const msg = document.getElementById('flag-modal-message');
+
+            if (!modal) {
+                console.error("Target #flag-modal element not found in DOM.");
+                return;
+            }
+
+            if (isCorrect) {
+                icon.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 text-xl bg-emerald-900/50 text-emerald-400 border border-emerald-500/50";
+                icon.innerHTML = '<i class="fa-solid fa-trophy"></i>';
+                title.innerText = "Congratulations!";
+                title.className = "text-base font-bold mb-1 text-emerald-400";
+            } else {
+                icon.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 text-xl bg-rose-900/50 text-rose-400 border border-rose-500/50";
+                icon.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+                title.innerText = "Incorrect Flag";
+                title.className = "text-base font-bold mb-1 text-rose-400";
+            }
+
+            msg.innerText = message;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeFlagModal() {
+            const modal = document.getElementById('flag-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
         }
 
         function showErrorPage(title, htmlContent) {

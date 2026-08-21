@@ -136,9 +136,9 @@ async def check_flag(module: str, lab_id: str, flag: str):
 
     lab_mngr = LabManager()
 
-    if not lab_mngr.is_module_exist(module) or not lab_mngr.is_submodule_exist(module, lab_id):
+    if not lab_mngr.is_module_exist(module) or not lab_mngr.is_submodule_exist(lab_id, module):
         raise HTTPException(status_code=404, detail="Module or submodule not exist")
-    
+
     return JSONResponse(
         status_code=200,
         content={

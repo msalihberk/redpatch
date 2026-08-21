@@ -1,3 +1,4 @@
+import html
 import json
 import io
 import os
@@ -255,7 +256,11 @@ class LabManager:
         }
 
     def check_flag(self, module:str, lab_id:str, flag:str):
-        return self.get_workspace_files(module, lab_id)["flags"] == flag
+        flags = self.get_workspace_files(module, lab_id)["flags"]
+        for flag_ in flags:
+            if html.unescape(flag) == flags[flag_]:
+                return True
+        return False
 
     def get_routes_from_submodule(self, submodule_name: str, module_name:str) -> str:
         if not submodule_name:
