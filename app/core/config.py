@@ -24,7 +24,7 @@ def create_default_config(file_path: str):
 class Settings:
     def __init__(self):
         self.PROJECT_NAME: str = "RedPatch"
-        self.VERSION: str = "v0.4.4"
+        self.VERSION: str = "v0.8.2"
 
         self.CONFIG_JSON: str = os.getenv("CONFIG_JSON", "core/config.json").strip()
         self.ARCHIVE_DIR: str = os.getenv("ARCHIVE_DIR", "labs/archives").strip()
