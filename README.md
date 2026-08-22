@@ -130,6 +130,7 @@ flowchart LR
     MANAGER --> MANIFEST
     DOCKER --> CONTAINERS
     AI --> PROVIDER
+    PROXY --> CONTAINERS
 ```
 
 The important architectural boundary is:
