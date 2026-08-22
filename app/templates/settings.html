@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RedPatch | Settings</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', path='favicon.ico') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
+                    colors: { brand: { dark: '#0B0F19', card: '#111827', border: '#1F2937', muted: '#9CA3AF' } }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-brand-dark text-slate-100 font-sans min-h-screen antialiased selection:bg-red-900 selection:text-white flex flex-col justify-between">
+    <header class="border-b border-brand-border/60 bg-brand-dark/80 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+            {% include 'components/navbar-logo.html' %}
+            <a href="{{ url_for('index') }}" class="text-xs font-mono text-brand-muted hover:text-slate-200 transition-colors flex items-center gap-2">
+                <i class="fa-solid fa-arrow-left"></i>
+                <span>BACK TO HOME</span>
+            </a>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-6 py-10 md:py-14 w-full flex-grow">
+        <section class="border-b border-brand-border pb-8 mb-8">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded border border-red-500/20 bg-red-500/5 text-red-400 text-xs font-mono tracking-wider uppercase mb-4">
+                <i class="fa-solid fa-sliders"></i>
+                <span>System Configuration</span>
+            </div>
+            <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-white">AI Engine Settings</h1>
+            <p class="mt-2 text-brand-muted leading-relaxed text-sm">Configure your Large Language Model provider and authentication credentials for automated code analysis.</p>
+        </section>
+
+        <form action="/change-settings" method="POST" class="space-y-6">
+            <div class="rounded-xl border border-brand-border bg-brand-card/60 p-6 space-y-6">
+                <div>
+                    <label for="llm_provider" class="block text-xs font-mono uppercase tracking-wider text-brand-muted mb-2">
+                        LLM Provider
+                    </label>
+                    <div class="relative">
+                        <input type="text" id="llm_provider" name="llm_provider" value="{{ LLM_PROVIDER }}" required class="w-full bg-slate-950 border border-brand-border rounded-lg px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors font-mono">
+                    </div>
+                </div>
+
+                <div>
+                    <label for="MODEL" class="block text-xs font-mono uppercase tracking-wider text-brand-muted mb-2">
+                        Model Identity
+                    </label>
+                    <div class="relative">
+                        <input type="text" id="model" name="model" value="{{ MODEL }}" required class="w-full bg-slate-950 border border-brand-border rounded-lg px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors font-mono">
+                    </div>
+                </div>
+
+                <div>
+                    <label for="api_key" class="block text-xs font-mono uppercase tracking-wider text-brand-muted mb-2">
+                        API Access Key
+                    </label>
+                    <div class="relative">
+                        <input type="password" id="api_key" name="api_key" value="{{ API_KEY }}" required class="w-full bg-slate-950 border border-brand-border rounded-lg pl-4 pr-10 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors font-mono">
+                        <button type="button" onclick="toggleApiKey()" class="absolute right-3 top-1/2 -translate-y-1/2 text-brand-muted hover:text-slate-200 transition-colors focus:outline-none">
+                            <i id="toggleIcon" class="fa-solid fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-4">
+                <button type="submit" class="px-6 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold text-sm transition-colors flex items-center gap-2 shadow-lg shadow-red-600/20 cursor-pointer">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                    <span>Save Configuration</span>
+                </button>
+            </div>
+        </form>
+    </main>
+
+    <footer class="border-t border-brand-border/60 bg-brand-dark py-6 text-xs text-brand-muted font-mono">
+        <div class="max-w-7xl mx-auto px-6 flex items-center justify-between gap-4">
+            <span>RedPatch Control Panel</span>
+            <a href="{{ url_for('index') }}" class="hover:text-slate-200 transition-colors">RETURN HOME</a>
+        </div>
+    </footer>
+    <script>
+        function toggleApiKey() {
+            const input = document.getElementById('api_key');
+            const icon = document.getElementById('toggleIcon');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+    </script>
+</body>
+</html>

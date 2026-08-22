@@ -24,7 +24,7 @@ def create_default_config(file_path: str):
 class Settings:
     def __init__(self):
         self.PROJECT_NAME: str = "RedPatch"
-        self.VERSION: str = "v0.8.2"
+        self.VERSION: str = "v0.8.3"
 
         self.CONFIG_JSON: str = os.getenv("CONFIG_JSON", "core/config.json").strip()
         self.ARCHIVE_DIR: str = os.getenv("ARCHIVE_DIR", "labs/archives").strip()
@@ -32,6 +32,19 @@ class Settings:
         self.LLM_PROVIDER: str = self.get_config_json("LLM_PROVIDER", "gemini")
         self.API_KEY: str = self.get_config_json("API_KEY", "")
         self.MODEL: str = self.get_config_json("MODEL", "gemini-flash-lite-latest")
+
+    def get_options(self):
+        return {
+            "LLM_PROVIDER" : self.LLM_PROVIDER,
+            "API_KEY" : self.API_KEY,
+            "MODEL" : self.MODEL
+        }
+
+    def set_options(self, config:dict):
+        self.set_config_json(config)
+        self.LLM_PROVIDER = config.get("LLM_PROVIDER", "")
+        self.API_KEY = config.get("API_KEY", "")
+        self.MODEL = config.get("MODEL", "")
 
     def validate(self):
         if not self.API_KEY:
@@ -57,5 +70,9 @@ class Settings:
                 if not default:
                     raise KeyError(f"Key {key} not found in config.json")
                 return default
+
+    def set_config_json(self, data: dict):
+        with open(self.CONFIG_JSON, "w") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
 
 settings = Settings()
