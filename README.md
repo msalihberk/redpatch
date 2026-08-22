@@ -65,7 +65,7 @@ Interact with an intentionally vulnerable application and investigate its attack
 **Find the vulnerability. Exploit the application. Capture the flag.**
 
 <p align="center">
-  <img src="assets/demo-pentester.gif" alt="RedPatch Pentester Mode Demo" width="100%">
+  <video src="assets/demo-pentester.mp4" width="100%" autoplay loop muted playsinline></video>
 </p>
 
 <br>
@@ -76,7 +76,7 @@ The vulnerable application's source becomes available through the built-in works
 **Inspect the vulnerable code. Patch it. Verify the remediation.**
 
 <p align="center">
-  <img src="assets/demo-coder.gif" alt="RedPatch Coder Mode Demo" width="100%">
+  <video src="assets/demo-coder.mp4" width="100%" autoplay loop muted playsinline></video>
 </p>
 
 
