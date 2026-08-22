@@ -62,7 +62,7 @@ Interact with an intentionally vulnerable application and investigate its attack
 **Find the vulnerability. Exploit the application. Capture the flag.**
 
 <p align="center">
-  <video src="https://github.com/user-attachments/assets/267c0d7b-8843-4d31-952d-ec198d5bd48d" width="100%" autoplay loop muted playsinline></video>
+  <video src="https://github.com/user-attachments/assets/ff3e75a8-31f7-4efb-ad6f-fab2d8b44396" width="100%" autoplay loop muted playsinline></video>
 </p>
 
 <br>
@@ -73,7 +73,7 @@ The vulnerable application's source becomes available through the built-in works
 **Inspect the vulnerable code. Patch it. Verify the remediation.**
 
 <p align="center">
-  <video src="https://github.com/user-attachments/assets/b7e3e91f-d9ff-4634-8c7f-25ae3a84bf6e" width="100%" autoplay loop muted playsinline></video>
+  <video src="https://github.com/user-attachments/assets/bab6065d-615d-465d-b56f-27bfd381b837" width="100%" autoplay loop muted playsinline></video>
 </p>
 
 
