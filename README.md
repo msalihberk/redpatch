@@ -16,16 +16,16 @@ All through one isolated, containerized security workflow.
 
 <a href="https://github.com/msalihberk/redpatch">
   <img src="https://img.shields.io/github/stars/msalihberk/redpatch?style=for-the-badge&logo=github&label=STAR" alt="GitHub Stars">
-</a>
+</a>&nbsp;
 <a href="https://hub.docker.com/r/msalihberk/redpatch">
   <img src="https://img.shields.io/badge/DOCKER-READY-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker">
-</a>
+</a>&nbsp;
 <a href="https://github.com/msalihberk/redpatch-labs">
   <img src="https://img.shields.io/badge/LABS-EXPLORE-111827?style=for-the-badge&logo=github&logoColor=white" alt="RedPatch Labs">
-</a>
+</a>&nbsp;
 <a href="https://github.com/msalihberk/redpatch/blob/main/LICENSE">
   <img src="https://img.shields.io/badge/AGPL--3.0-LICENSE-2ea44f?style=for-the-badge" alt="AGPL-3.0">
-</a>
+</a>&nbsp;
 
 <br><br>
 
