@@ -1,4 +1,4 @@
-name: Build and Push RedPatch Images
+name: Build and Push RedPatch Image
 
 on:
   push:
@@ -24,23 +24,20 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and Push All Images
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/}
+      - name: Extract Docker Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/redpatch
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=latest
 
-          for dir in $(find . -maxdepth 2 -name Dockerfile | xargs -n1 dirname); do
-            [ "$dir" = "." ] && continue
-            
-            FOLDER_NAME=$(basename $dir)
-            IMAGE_NAME="${{ secrets.DOCKERHUB_USERNAME }}/${FOLDER_NAME}:${VERSION}"
-
-            echo "Building image for ${FOLDER_NAME}..."
-
-            docker buildx build \
-              --context $dir \
-              --file $dir/Dockerfile \
-              --push \
-              --tag "${IMAGE_NAME}:${VERSION}" \
-              --tag "${IMAGE_NAME}:latest"
-          done
-          
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./app
+          file: ./app/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
