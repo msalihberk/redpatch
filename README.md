@@ -14,8 +14,6 @@ Get up and running immediately using Docker Compose. Make sure Docker is running
 docker-compose up --build
 ```
 
-Access the platform at: [http://localhost:8000](http://localhost:8000)
-
 ---
 
 ## 🎮 Game Modes

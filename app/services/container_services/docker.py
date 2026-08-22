@@ -1,3 +1,4 @@
+import gzip
 import shutil
 import subprocess
 import time
@@ -66,8 +67,12 @@ class DockerService:
         try:
             client = docker.from_env()
 
-            with open(archive, "rb") as archive_file:
-                client.images.load(archive_file.read())
+            if str(archive).endswith(".gz"):
+                with gzip.open(archive, "rb") as gz_file:
+                    client.images.load(gz_file.read())
+            else:
+                with open(archive, "rb") as archive_file:
+                    client.images.load(archive_file.read())
 
         except (DockerException, APIError, OSError) as exc:
             raise RuntimeError(f"Docker image load failed: {exc}") from exc

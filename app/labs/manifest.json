@@ -11,7 +11,7 @@
             "image_tag": "redpatch-lab/sqli-0:v1.0.0",
             "port": 5000,
             "dev_path": "./labs/sqli-0",
-            "download_url": "http://host.docker.internal:4444/sqli-0.tar"
+            "download_url": "https://github.com/msalihberk/redpatch-labs/releases/download/v1.0.0/sqli-0.tar.gz"
           }
         ]
       },
@@ -26,7 +26,7 @@
             "image_tag": "redpatch-lab/idor-0:v1.0.0",
             "port": 5001,
             "dev_path": "./labs/idor-0",
-            "download_url": "http://host.docker.internal:4444/idor-0.tar"
+            "download_url": "https://github.com/msalihberk/redpatch-labs/releases/download/v1.0.0/idor-0.tar.gz"
           }
         ]
       },
@@ -41,7 +41,7 @@
             "image_tag": "redpatch-lab/cmdi-0:v1.0.0",
             "port": 5002,
             "dev_path": "./labs/cmdi-0",
-            "download_url": "http://host.docker.internal:4444/cmdi-0.tar"
+            "download_url": "https://github.com/msalihberk/redpatch-labs/releases/download/v1.0.0/cmdi-0.tar.gz"
           }
         ]
       }
