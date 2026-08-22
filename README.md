@@ -65,7 +65,7 @@ Interact with an intentionally vulnerable application and investigate its attack
 **Find the vulnerability. Exploit the application. Capture the flag.**
 
 <p align="center">
-  <video src="assets/demo-pentester.mp4" width="100%" autoplay loop muted playsinline></video>
+  <video src="https://github-production-user-asset-6210df.s3.amazonaws.com/204578175/639915385-267c0d7b-8843-4d31-952d-ec198d5bd48d.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAVCODYLSA53PQK4ZA%2F20260822%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20260822T164005Z&X-Amz-Expires=300&X-Amz-Signature=e469f65ee8cdb48209bab237b4f6e40a351f209c5b3a64e8cb8cbec96cb8cd3f&X-Amz-SignedHeaders=host&response-content-type=video%2Fmp4" width="100%" autoplay loop muted playsinline></video>
 </p>
 
 <br>
@@ -76,7 +76,7 @@ The vulnerable application's source becomes available through the built-in works
 **Inspect the vulnerable code. Patch it. Verify the remediation.**
 
 <p align="center">
-  <video src="assets/demo-coder.mp4" width="100%" autoplay loop muted playsinline></video>
+  <video src="https://github-production-user-asset-6210df.s3.amazonaws.com/204578175/639915332-b7e3e91f-d9ff-4634-8c7f-25ae3a84bf6e.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAVCODYLSA53PQK4ZA%2F20260822%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20260822T164110Z&X-Amz-Expires=300&X-Amz-Signature=8fd285c5dc3b0be5043cf7eae6a62adb931f46df79e2d60ad1756a58817e5854&X-Amz-SignedHeaders=host&response-content-type=video%2Fmp4" width="100%" autoplay loop muted playsinline></video>
 </p>
 
 
