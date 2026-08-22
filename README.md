@@ -265,9 +265,22 @@ The AI service is intentionally separated behind a provider abstraction.
              Gemini Provider
 ```
 
-This means the rest of RedPatch does not need to depend directly on provider-specific API implementation.
+This means the rest of RedPatch does not need to depend directly on provider-specific API implementations.
 
-The current configuration supports Google Gemini.
+The current configuration primarily supports Google Gemini.
+
+### ⚙️ Managing Configuration
+
+You can manage your AI credentials and platform settings through two methods:
+
+#### 1. Web UI Control Panel (Recommended)
+Launch the application and click the **Settings** icon in the navbar to open the in-app management modal. This allows you to update your settings dynamically without restarting the server:
+* **LLM Provider** (e.g., `gemini`)
+* **API Key**
+* **Model Selection** (e.g., `gemini-flash-lite-latest`)
+
+#### 2. Local Configuration File
+Alternatively, you can edit `app/core/config.json` directly:
 
 ```json
 {
@@ -277,10 +290,10 @@ The current configuration supports Google Gemini.
 }
 ```
 
-Configuration:
+Or specify a custom configuration file path using environment variables:
 
-```text
-app/core/config.json
+```env
+CONFIG_JSON=app/core/config.json
 ```
 
 or through:
@@ -318,10 +331,6 @@ docker run -d `
   msalihberk/redpatch:latest
 ```
 
-Then open:
-
-**http://localhost:8000**
-
 ### Docker Compose
 
 ```bash
@@ -331,7 +340,9 @@ cd redpatch
 docker compose up -d --build
 ```
 
-Open **http://localhost:8000**.
+Then open:
+
+**http://localhost:8000**
 
 ---
 
