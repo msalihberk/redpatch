@@ -29,7 +29,7 @@ All through one isolated, containerized security workflow.
 
 <br><br>
 
-<a href="#-how-redpatch-works">How it works</a> · <a href="#-architecture">Architecture</a> · <a href="#-labs">Labs</a> · <a href="#-quick-start">Quick Start</a>
+<a href="#-how-redpatch-works">How it works</a> · <a href="#️-architecture">Architecture</a> · <a href="#-labs">Labs</a> · <a href="#-quick-start">Quick Start</a>
 
 </div>
 
@@ -65,33 +65,43 @@ One continuous workflow.
 
 ## 🎯 How RedPatch Works
 
+### Pentester Mode
+
+Interact with an intentionally vulnerable application and investigate its attack surface.
+**Find the vulnerability. Exploit the application. Capture the flag.**
+
+<p align="center">
+  <img src="assets/demo-pentester.gif" alt="RedPatch Pentester Mode Demo" width="100%">
+</p>
+
+<br>
+
+### Coder Mode
+
+The vulnerable application's source becomes available through the built-in workspace, allowing you to inspect and patch the underlying code.
+**Inspect the vulnerable code. Patch it. Verify the remediation.**
+
+<p align="center">
+  <img src="assets/demo-coder.gif" alt="RedPatch Coder Mode Demo" width="100%">
+</p>
+
+
+
 ```text
 ┌─────────────────────────────────────────────────────────────────┐
-│                         REDPATCH                                │
+│                           REDPATCH                              │
 │                                                                 │
-│   🕵️ PENTESTER          💻 CODER            🤖 AI AGENT         │
-│   ─────────────          ────────            ──────────         │
+│     PENTESTER              CODER              AI AGENT          │
+│   ─────────────          ─────────           ──────────         │
 │   Find the flaw    →     Patch it      →     Verify it          │
 │   Exploit the app        Modify code         Analyze fix        │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 🕵️ Pentester Mode
-
-Interact with an intentionally vulnerable application and investigate its attack surface.
-
-Find the vulnerability, exploit it and retrieve the lab's flag.
-
-### 💻 Coder Mode
-
-Move from attacker to defender.
-
-The vulnerable application's source becomes available through the built-in workspace, allowing you to inspect and patch the underlying code.
-
 ### 🤖 AI Verification
 
-Submit your remediation to the configured security analysis agent.
+Submit your remediation to the configured security analysis agent in coder mode.
 
 The agent evaluates the patch and provides feedback on whether the vulnerability has actually been addressed.
 
@@ -178,19 +188,10 @@ This repository contains the **platform and orchestration layer**.
 
 The actual vulnerable applications and laboratory implementations live in:
 
-<div align="center">
-
 <a href="https://github.com/msalihberk/redpatch-labs">
-
-<img src="https://img.shields.io/badge/→%20EXPLORE%20REDPATCH%20LABS-111827?style=for-the-badge&logo=github&logoColor=white" alt="Explore RedPatch Labs">
-
+    <img src="https://img.shields.io/badge/→%20EXPLORE%20REDPATCH%20LABS-111827?style=for-the-badge&logo=github&logoColor=white" alt="Explore RedPatch Labs">
 </a>
 
-<br><br>
-
-**github.com/msalihberk/redpatch-labs**
-
-</div>
 
 The host engine discovers available laboratories through `app/labs/manifest.json`.
 

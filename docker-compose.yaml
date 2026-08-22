@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  redpatch:
+  redpatch-app:
     image: msalihberk/redpatch:latest
     ports:
       - "8000:8000"
