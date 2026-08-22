@@ -133,21 +133,6 @@ flowchart LR
     PROXY --> CONTAINERS
 ```
 
-The important architectural boundary is:
-
-```text
-                    REDPATCH
-                 HOST ENGINE
-                      │
-       ┌──────────────┼──────────────┐
-       │              │              │
-       ▼              ▼              ▼
-   Lab Manager     Docker          AI Service
-       │              │              │
-       ▼              ▼              ▼
-   Manifest       Lab Runtime     LLM Provider
-```
-
 ### Host Engine
 
 `app/main.py` is the central application entry point.
