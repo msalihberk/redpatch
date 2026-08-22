@@ -21,4 +21,4 @@ Verify that:
 3. Port conflicts: If the host port mapped by RedPatch is blocked by another application, try stopping other containers/applications and restarting the lab.
 
 ### 5. Can I run RedPatch inside Docker?
-Yes, a `docker-compose.yaml` is provided. Running `docker-compose up --build` spins up both the host service and connects it securely to your local Docker daemon (via the Docker socket mount) to spin up sub-lab containers.
+Yes, a `docker-compose.yaml` is provided. Running `docker compose up -d --build` spins up both the host service and connects it securely to your local Docker daemon (via the Docker socket mount) to spin up sub-lab containers.

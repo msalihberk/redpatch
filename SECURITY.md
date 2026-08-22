@@ -14,7 +14,7 @@ We currently actively support and address security issues in the following versi
 If you discover a security vulnerability within the RedPatch orchestrator, proxy module, or default lab images, please do not disclose it publicly.
 
 We ask you to report it responsibly by contacting the maintainers directly:
-- **Email:** security@redpatch.placeholder.com (Replace with actual contact)
+- **Email:** msalihberk@proton.me
 
 Please include:
 - A description of the vulnerability.

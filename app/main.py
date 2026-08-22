@@ -15,7 +15,7 @@ from app.services.ai.ai_agent import RedTeamAgent
 from app.services.container_services.docker import DockerService
 from app.services.module_manager.lab_manager import LabManager
 from app.services.container_services.helpers import DockerHelper
-from app.core.config import Settings
+from app.core.config import settings
 
 from pydantic import BaseModel, Field
 from pathlib import Path
@@ -112,13 +112,13 @@ async def change_settings(
         model: str = Form(None)
     ):
     if request.method == "POST":
-        settings = {
+        config_data = {
             "LLM_PROVIDER": llm_provider,
             "API_KEY": api_key,
             "MODEL": model
         }
-        Settings().set_options(settings)
-    return templates.TemplateResponse(request, "settings.html", Settings().get_options())
+        settings.set_options(config_data)
+    return templates.TemplateResponse(request, "settings.html", settings.get_options())
 
 @app.get("/modules", response_class=HTMLResponse)
 async def get_modules(request: Request, action: str = None, module: str = None, mode: str = None):

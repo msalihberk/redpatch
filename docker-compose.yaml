@@ -1,10 +1,8 @@
 version: '3.8'
 
 services:
-  redpatch-app:
-    build:
-      context: .
-      dockerfile: app/Dockerfile
+  redpatch:
+    image: msalihberk/redpatch:latest
     ports:
       - "8000:8000"
     volumes:
