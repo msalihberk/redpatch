@@ -322,12 +322,22 @@ CONFIG_JSON=app/core/config.json
 docker network create redpatch_net
 docker volume create redpatch_lab_tmp
 
+# Linux / macOS
 docker run -d \
   --name redpatch-app \
   -p 8000:8000 \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v redpatch_lab_tmp:/app/labs/archives \
   --network redpatch_net \
+  msalihberk/redpatch:latest
+  
+# Windows
+docker run -d `
+  --name redpatch-app `
+  -p 8000:8000 `
+  -v //./pipe/docker_engine:/var/run/docker.sock `
+  -v redpatch_lab_tmp:/app/labs/archives `
+  --network redpatch_net `
   msalihberk/redpatch:latest
 ```
 
