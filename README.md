@@ -274,7 +274,7 @@ The current configuration primarily supports Google Gemini.
 You can manage your AI credentials and platform settings through two methods:
 
 #### 1. Web UI Control Panel (Recommended)
-Launch the application and click the **Settings** icon in the navbar to open the in-app management modal. This allows you to update your settings dynamically without restarting the server:
+Launch the application and click the **Settings** icon in the navbar to open the in-app management panel. This allows you to update your settings dynamically without restarting the server:
 * **LLM Provider** (e.g., `gemini`)
 * **API Key**
 * **Model Selection** (e.g., `gemini-flash-lite-latest`)
@@ -291,12 +291,6 @@ Alternatively, you can edit `app/core/config.json` directly:
 ```
 
 Or specify a custom configuration file path using environment variables:
-
-```env
-CONFIG_JSON=app/core/config.json
-```
-
-or through:
 
 ```env
 CONFIG_JSON=app/core/config.json
