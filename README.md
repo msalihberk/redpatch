@@ -36,6 +36,13 @@ All through one isolated, containerized security workflow.
 
 </div>
 
+#### Description
+RedPatch is an interactive, containerized application security playground and defense simulator designed to bridge the gap between offensive penetration testing and defensive secure code remediation. Built with a lightweight FastAPI orchestration engine, RedPatch goes beyond traditional vulnerability discovery by guiding users through a complete three-step security lifecycle: Exploit, Patch, and Verify.
+
+Users begin in Pentester Mode, analyzing attack surfaces and exploiting flaws such as SQL Injection or IDOR to capture flags. They then transition to Coder Mode, gaining direct real-time access to the application's source code within an isolated workspace to write and apply root-cause security fixes. Finally, an AI Security Layer—built on an extensible provider abstraction—evaluates the applied patch to verify whether the vulnerability has been completely resolved. By decoupling the host orchestration engine from external laboratory definitions through a declarative manifest system (manifest.json), RedPatch provides a modular, lightweight, and scalable environment for practical cybersecurity education.
+
+#### Video Demo: [Youtube](https://youtu.be/HssfXp6wzpI)
+
 ---
 
 ## ⚡ What makes RedPatch different?
