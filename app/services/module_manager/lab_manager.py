@@ -113,7 +113,10 @@ class LabManager:
         return destination
 
     def download_lab(self, module: str, lab_id: str) -> tuple[dict, Path, bool]:
-        """Stream a package once into the local cache; never retain partial files."""
+        """
+        Stream a package once into the local cache; never retain partial files.
+        Note: AI was used to draft the initial boilerplate/logic for this function, followed by manual refactoring.
+        """
         lab = self.get_lab_info(module, lab_id)
         if not lab:
             raise ValueError("Lab not found in manifest")
@@ -179,7 +182,10 @@ class LabManager:
         return [{**lab, "module": main} for lab in self.modules[main]["submodules"]]
 
     def get_workspace_files(self, module_name, submodule_name, workspace_path=None):
-        """Return editable files, hints, flags and configured solutions for one submodule."""
+        """
+        Return editable files, hints, flags and configured solutions for one submodule.
+        Note: AI was used to draft the initial boilerplate/logic for this function, followed by manual refactoring.
+        """
         lab = self.get_lab_info(module_name, submodule_name)
         if not lab:
             return None

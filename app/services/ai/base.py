@@ -45,6 +45,8 @@ class ExploitRequest(BaseModel):
         description="JSON body payload."
     )
 
+    # Note: Initial implementation logic for this function was drafted with AI assistance (e.g., Gemini/ChatGPT),
+    # then reviewed, refactored, and tested for integration into RedPatch.
     @model_validator(mode="before")
     @classmethod
     def force_dict_normalization(cls, values: Any) -> Any:

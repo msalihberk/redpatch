@@ -43,6 +43,5 @@ class GeminiProvider(BaseLLMProvider, ABC):
                 temperature=0.1,
             )
         )
-        print(response.text)
 
         return AIConfigurations.get_analysis(response)
