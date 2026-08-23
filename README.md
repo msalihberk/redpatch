@@ -463,7 +463,7 @@ Read the [Contributing Guide](CONTRIBUTING.md) before submitting a pull request.
 
 <sub>
 
-Built with ❤️ as a Harvard CS50x Final Project by <a href="cs50.harvard.edu/certificates/d109dc5b-07bb-4676-b01f-c5ce50d8d2ea">Mustafa Salih Berk</a>.
+Built with ❤️ as a Harvard CS50x Final Project by <a href="https://cs50.harvard.edu/certificates/d109dc5b-07bb-4676-b01f-c5ce50d8d2ea">Mustafa Salih Berk</a>.
 
 </sub>
 
