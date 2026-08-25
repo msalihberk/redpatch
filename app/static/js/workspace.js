@@ -571,6 +571,10 @@ function displayAIAnalysisResult(analysis) {
     const content = document.getElementById('ai-modal-content');
     if (!modal || !content) return;
 
+    if (!analysis.vulnerability_found) {
+        setLabStatusSolved()
+    }
+
     if (analysis.target_line && analysis.target_line > 0 && analysis.vulnerability_found) {
         const startLine = Math.max(1, analysis.target_line - 1);
         const endLine = analysis.target_line + 1;
